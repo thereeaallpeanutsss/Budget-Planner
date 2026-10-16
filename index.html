@@ -55,9 +55,25 @@
         user-select: auto;
       }
     </style>
+    <!-- GitHub Pages relative asset normalizer: Ensures trailing slash on project repo subpaths so ./assets resolve correctly -->
+    <script>
+      (function() {
+        var l = window.location;
+        // If loaded under a subpath without trailing slash (e.g. https://username.github.io/repo-name)
+        if (!l.pathname.endsWith('/') && !l.pathname.split('/').pop().includes('.')) {
+          l.replace(l.pathname + '/' + l.search + l.hash);
+        }
+      })();
+    </script>
   </head>
   <body class="h-full bg-slate-950 text-slate-100 antialiased selection:bg-emerald-500/30 selection:text-emerald-200">
-    <div id="root" class="h-full w-full"></div>
+    <div id="root" class="h-full w-full">
+      <!-- Pre-hydration placeholder to avoid flash of blank screen before bundle parses -->
+      <div id="initial-loading-fallback" class="flex h-screen w-full flex-col items-center justify-center bg-slate-950 text-emerald-400 gap-3">
+        <div class="w-9 h-9 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        <span class="text-xs tracking-wider text-slate-400 font-medium">Opening Zenith Budget...</span>
+      </div>
+    </div>
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>

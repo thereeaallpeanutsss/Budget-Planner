@@ -1,5 +1,6 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import fs from 'fs';
 import path from 'path';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -7,10 +8,30 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig(() => {
   return {
     // Relative base ensures GitHub Pages deployment works under any repository subfolder
-    base: './',
+    base: process.env.BASE_URL || './',
     plugins: [
       react(),
       tailwindcss(),
+      {
+        name: 'github-pages-helper',
+        closeBundle() {
+          const outDirs = ['dist', 'docs'];
+          for (const dirName of outDirs) {
+            const outPath = path.resolve(import.meta.dirname || process.cwd(), dirName);
+            const indexHtml = path.join(outPath, 'index.html');
+            const notFoundHtml = path.join(outPath, '404.html');
+            const noJekyll = path.join(outPath, '.nojekyll');
+            if (fs.existsSync(indexHtml)) {
+              try {
+                fs.copyFileSync(indexHtml, notFoundHtml);
+                fs.writeFileSync(noJekyll, '# Disable Jekyll for GitHub Pages\n');
+              } catch (e) {
+                console.warn('github-pages-helper notice:', e);
+              }
+            }
+          }
+        },
+      },
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
@@ -50,8 +71,7 @@ export default defineConfig(() => {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         },
         devOptions: {
-          enabled: true,
-          type: 'module',
+          enabled: false,
         },
       }),
     ],

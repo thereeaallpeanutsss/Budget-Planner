@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>Zenith Budget — iOS Offline Budget Planner</title>
+    <meta
+      name="description"
+      content="Clean, privacy-first personal budget planner optimized for iOS & iPad with local accounts and offline backup & restore."
+    />
+
+    <!-- iOS Web App Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ZenithBudget" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#090d16" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Zenith Budget — iOS Offline Budget Planner" />
+    <meta
+      property="og:description"
+      content="Clean, privacy-first personal budget planner optimized for iOS & iPad with local accounts and offline backup & restore."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
+
+    <!-- Icons -->
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <link rel="shortcut icon" href="./favicon.ico" />
+
+    <!-- Prevent iOS bounce refresh if desired, allow smooth native touch gestures -->
+    <style>:root{--sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px)}*{-webkit-user-drag:none}body{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;overscroll-behavior-y:none}input,textarea,select{-webkit-user-select:auto;user-select:auto}</style>
+    <!-- GitHub Pages relative asset normalizer: Ensures trailing slash on project repo subpaths so ./assets resolve correctly -->
+    <script>
+      (function() {
+        var l = window.location;
+        // If loaded under a subpath without trailing slash (e.g. https://username.github.io/repo-name)
+        if (!l.pathname.endsWith('/') && !l.pathname.split('/').pop().includes('.')) {
+          l.replace(l.pathname + '/' + l.search + l.hash);
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="./assets/index-D_9KJ2yk.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CEDgNBpF.css">
+  <link rel="manifest" href="./manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="./registerSW.js"></script></head>
+  <body class="h-full bg-slate-950 text-slate-100 antialiased selection:bg-emerald-500/30 selection:text-emerald-200">
+    <div id="root" class="h-full w-full">
+      <!-- Pre-hydration placeholder to avoid flash of blank screen before bundle parses -->
+      <div id="initial-loading-fallback" class="flex h-screen w-full flex-col items-center justify-center bg-slate-950 text-emerald-400 gap-3">
+        <div class="w-9 h-9 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        <span class="text-xs tracking-wider text-slate-400 font-medium">Opening Zenith Budget...</span>
+      </div>
+    </div>
+  </body>
+</html>
