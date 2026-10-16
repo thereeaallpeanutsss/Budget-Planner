@@ -18,6 +18,18 @@
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
   }
+
+  /* Prevent dragging ghost elements around on desktop and mobile */
+  *, *::before, *::after {
+    -webkit-user-drag: none;
+  }
+}
+
+/* Modal scrolling helper to ensure only vertical scrolling happens and no content dragging */
+.modal-scrollable {
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .pt-safe {

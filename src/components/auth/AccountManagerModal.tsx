@@ -82,15 +82,22 @@ export const AccountManagerModal: React.FC<AccountManagerModalProps> = ({ isOpen
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4 animate-fade-in">
-      <div className="w-full max-w-lg rounded-t-3xl sm:rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
-        {/* iOS Drag Handle on Mobile */}
-        <div className="sm:hidden flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 bg-slate-700 rounded-full" />
-        </div>
-
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4 animate-fade-in overscroll-contain select-none"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          triggerHaptic('light');
+          onClose();
+        }
+      }}
+    >
+      <div
+        className="w-full max-w-lg rounded-t-3xl sm:rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col select-none overscroll-contain"
+        onDragStart={(e) => e.preventDefault()}
+        draggable={false}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-sm select-none">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
               <HardDrive className="w-5 h-5" />
@@ -101,11 +108,13 @@ export const AccountManagerModal: React.FC<AccountManagerModalProps> = ({ isOpen
             </div>
           </div>
           <button
+            type="button"
+            draggable={false}
             onClick={() => {
               triggerHaptic('light');
               onClose();
             }}
-            className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white"
+            className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -145,7 +154,10 @@ export const AccountManagerModal: React.FC<AccountManagerModalProps> = ({ isOpen
         </div>
 
         {/* Body Content */}
-        <div className="overflow-y-auto p-6 space-y-4 flex-1">
+        <div
+          className="overflow-y-auto p-6 space-y-4 flex-1 modal-scrollable no-scrollbar touch-pan-y overscroll-contain"
+          onDragStart={(e) => e.preventDefault()}
+        >
           {activeTab === 'switch' ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between text-xs text-slate-400 px-1">

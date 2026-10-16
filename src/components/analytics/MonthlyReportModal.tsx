@@ -51,17 +51,24 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
   const maxDaySpend = Math.max(1, ...dailyTrend.map((d) => d.amount));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-4 animate-fade-in overflow-y-auto">
-      <div className="w-full max-w-2xl rounded-t-3xl sm:rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col my-auto">
-        {/* iOS Drag Handle */}
-        <div className="sm:hidden flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 bg-slate-700 rounded-full" />
-        </div>
-
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-4 animate-fade-in overscroll-contain select-none"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          triggerHaptic('light');
+          onClose();
+        }
+      }}
+    >
+      <div
+        className="w-full max-w-2xl rounded-t-3xl sm:rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col select-none overscroll-contain my-auto"
+        onDragStart={(e) => e.preventDefault()}
+        draggable={false}
+      >
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-slate-950/40">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-slate-950/40 select-none">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-sm">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-sm shrink-0">
               <Award className="w-5 h-5" />
             </div>
             <div>
@@ -83,6 +90,8 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
           </div>
 
           <button
+            type="button"
+            draggable={false}
             onClick={() => {
               triggerHaptic('light');
               onClose();
@@ -93,8 +102,11 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
           </button>
         </div>
 
-        {/* Scrollable Report Content */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1 no-scrollbar">
+        {/* Scrollable Report Content - strictly scrollable, no dragging */}
+        <div
+          className="p-6 overflow-y-auto space-y-6 flex-1 no-scrollbar modal-scrollable touch-pan-y overscroll-contain"
+          onDragStart={(e) => e.preventDefault()}
+        >
           {/* Key KPI Hero Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {/* Total Spent */}

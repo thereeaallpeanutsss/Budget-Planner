@@ -105,15 +105,22 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 animate-fade-in">
-      <div className="w-full max-w-lg rounded-t-3xl sm:rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
-        {/* iOS Drag Handle */}
-        <div className="sm:hidden flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 bg-slate-700 rounded-full" />
-        </div>
-
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 animate-fade-in overscroll-contain select-none"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          triggerHaptic('light');
+          onClose();
+        }
+      }}
+    >
+      <div
+        className="w-full max-w-lg rounded-t-3xl sm:rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col select-none overscroll-contain"
+        onDragStart={(e) => e.preventDefault()}
+        draggable={false}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-sm select-none">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
               <Tag className="w-5 h-5" />
@@ -125,20 +132,24 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
           </div>
 
           <button
+            type="button"
+            draggable={false}
             onClick={() => {
               triggerHaptic('light');
               onClose();
             }}
-            className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white"
+            className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Tab Switcher (Expense vs Income) */}
-        <div className="px-6 pt-3 pb-1">
+        <div className="px-6 pt-3 pb-1 select-none">
           <div className="grid grid-cols-2 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs font-semibold">
             <button
+              type="button"
+              draggable={false}
               onClick={() => {
                 triggerHaptic('light');
                 setActiveTab('expense');
@@ -152,6 +163,8 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
               Expense Categories ({userData.categories.filter((c) => c.type === 'expense').length})
             </button>
             <button
+              type="button"
+              draggable={false}
               onClick={() => {
                 triggerHaptic('light');
                 setActiveTab('income');
@@ -168,7 +181,10 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="overflow-y-auto p-6 space-y-4 flex-1">
+        <div
+          className="overflow-y-auto p-6 space-y-4 flex-1 modal-scrollable no-scrollbar touch-pan-y overscroll-contain"
+          onDragStart={(e) => e.preventDefault()}
+        >
           {!isCreating ? (
             <>
               <div className="flex items-center justify-between">
