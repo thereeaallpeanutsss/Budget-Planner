@@ -1,0 +1,6 @@
+{
+  "name": "Zenith Budget - iOS Offline Budget Planner",
+  "description": "Clean, modern, privacy-first personal budget planner optimized for iOS & iPad with local-only storage, multi-user accounts, and local backup & restore.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
