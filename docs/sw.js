@@ -67,10 +67,14 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-7e5eb42b'], (function (workbox) { 'use strict';
+define(['./workbox-7a704c5f'], (function (workbox) { 'use strict';
 
-  self.skipWaiting();
-  workbox.clientsClaim();
+  self.addEventListener('message', event => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+      self.skipWaiting();
+    }
+  });
+
   /**
    * The precacheAndRoute() method efficiently caches and responds to
    * requests for URLs in the manifest.
@@ -81,7 +85,7 @@ define(['./workbox-7e5eb42b'], (function (workbox) { 'use strict';
     "revision": "402b66900e731ca748771b6fc5e7a068"
   }, {
     "url": "index.html",
-    "revision": "791515a1184ab0d0a293bd3883a21ecc"
+    "revision": "dd45397c082d5f701db43b12f9a1be67"
   }, {
     "url": "icon.svg",
     "revision": "967998e2264e62e7ad3fe9e687fa7acd"
@@ -102,12 +106,12 @@ define(['./workbox-7e5eb42b'], (function (workbox) { 'use strict';
     "revision": "0d9fb6ccd1b15c47ae77a88ea113e65b"
   }, {
     "url": "404.html",
-    "revision": "791515a1184ab0d0a293bd3883a21ecc"
+    "revision": "dd45397c082d5f701db43b12f9a1be67"
   }, {
-    "url": "assets/index-D_9KJ2yk.js",
+    "url": "assets/index-Dv7p3SgU.js",
     "revision": null
   }, {
-    "url": "assets/index-CEDgNBpF.css",
+    "url": "assets/index-DEmddeu9.css",
     "revision": null
   }, {
     "url": "apple-touch-icon.png",
@@ -132,6 +136,5 @@ define(['./workbox-7e5eb42b'], (function (workbox) { 'use strict';
     "revision": "1cee20edacd4026f56e546cb753b6047"
   }], {});
   workbox.cleanupOutdatedCaches();
-  workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html")));
 
 }));
