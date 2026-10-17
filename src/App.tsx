@@ -111,7 +111,7 @@ const MainContent: React.FC = () => {
   };
 
   return (
-    <div className="flex h-full w-full bg-slate-950 text-slate-100 overflow-hidden font-sans">
+    <div className="flex min-h-screen min-h-[100dvh] h-[100dvh] w-full bg-slate-950 text-slate-100 overflow-hidden font-sans">
       {/* iPad and Desktop Sidebar */}
       <Sidebar
         activeTab={activeTab}

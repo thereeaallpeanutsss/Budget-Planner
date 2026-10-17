@@ -19,8 +19,15 @@ import {
   deleteCustomCategory,
   UserSummary,
   triggerHaptic,
+  changeUserPassword,
+  changeUserPin,
+  adminLoginWithPassword,
+  hashPassword,
 } from '../services/storage';
 import { SUPPORTED_CURRENCIES } from '../utils/constants';
+
+const ADMIN_PASSCODE = 'abc123';
+const ADMIN_MODE_STORAGE_KEY = 'zenith_admin_mode_active';
 
 interface AuthContextType {
   users: UserSummary[];
@@ -29,6 +36,12 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLocked: boolean;
   isLoading: boolean;
+  isAdminMode: boolean;
+  enterAdminMode: (passcode: string) => boolean;
+  exitAdminMode: () => void;
+  adminLoginToUser: (userId: string, password: string) => Promise<void>;
+  updatePassword: (oldPassword: string, newPassword: string) => Promise<void>;
+  updatePin: (oldPin: string, newPin: string) => void;
   login: (email: string, password: string) => Promise<void>;
   signup: (
     email: string,
@@ -41,6 +54,7 @@ interface AuthContextType {
   ) => Promise<void>;
   logout: () => void;
   unlockWithPin: (pin: string) => boolean;
+  unlockWithPassword: (password: string) => Promise<boolean>;
   lockApp: () => void;
   switchUser: (userId: string) => void;
   updateUserPreferences: (prefs: Partial<UserProfile['preferences']>) => void;
@@ -58,6 +72,13 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [users, setUsers] = useState<UserSummary[]>([]);
+  const [isAdminMode, setIsAdminMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(ADMIN_MODE_STORAGE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [userData, setUserData] = useState<UserAppData | null>(null);
   const [isLocked, setIsLocked] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -166,6 +187,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     },
     [userData]
   );
+
+  const unlockWithPassword = useCallback(
+    async (inputPassword: string): Promise<boolean> => {
+      if (!userData) return false;
+      if (userData.profile.passwordHash && userData.profile.passwordSalt) {
+        const computed = await hashPassword(inputPassword, userData.profile.passwordSalt);
+        if (computed === userData.profile.passwordHash) {
+          setIsLocked(false);
+          triggerHaptic('success');
+          return true;
+        }
+      }
+      triggerHaptic('warning');
+      return false;
+    },
+    [userData]
+  );
+
+  const enterAdminMode = useCallback((passcode: string): boolean => {
+    if (passcode.trim().toLowerCase() === ADMIN_PASSCODE.toLowerCase()) {
+      setIsAdminMode(true);
+      try {
+        localStorage.setItem(ADMIN_MODE_STORAGE_KEY, 'true');
+      } catch (e) {
+        console.error(e);
+      }
+      triggerHaptic('success');
+      return true;
+    }
+    triggerHaptic('warning');
+    return false;
+  }, []);
+
+  const exitAdminMode = useCallback(() => {
+    setIsAdminMode(false);
+    try {
+      localStorage.removeItem(ADMIN_MODE_STORAGE_KEY);
+    } catch (e) {
+      console.error(e);
+    }
+    triggerHaptic('light');
+  }, []);
+
+  const adminLoginToUser = useCallback(async (userId: string, password: string) => {
+    const data = await adminLoginWithPassword(userId, password);
+    setUsers(getAllUsers());
+    setUserData(data);
+    setIsLocked(false);
+    triggerHaptic('success');
+  }, []);
+
+  const updatePassword = useCallback(async (oldPassword: string, newPassword: string) => {
+    if (!userData) throw new Error('No user is currently active.');
+    const updated = await changeUserPassword(userData.profile.id, oldPassword, newPassword);
+    setUserData(updated);
+    setUsers(getAllUsers());
+    triggerHaptic('success');
+  }, [userData]);
+
+  const updatePin = useCallback((oldPin: string, newPin: string) => {
+    if (!userData) throw new Error('No user is currently active.');
+    const updated = changeUserPin(userData.profile.id, oldPin, newPin);
+    setUserData(updated);
+    setUsers(getAllUsers());
+    triggerHaptic('success');
+  }, [userData]);
 
   const lockApp = useCallback(() => {
     if (userData?.profile.pin) {
@@ -319,10 +406,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: Boolean(userData),
         isLocked,
         isLoading,
+        isAdminMode,
+        enterAdminMode,
+        exitAdminMode,
+        adminLoginToUser,
+        updatePassword,
+        updatePin,
         login,
         signup,
         logout,
         unlockWithPin,
+        unlockWithPassword,
         lockApp,
         switchUser,
         updateUserPreferences,

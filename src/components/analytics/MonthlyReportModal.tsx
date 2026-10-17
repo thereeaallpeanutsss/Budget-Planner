@@ -61,30 +61,33 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
       }}
     >
       <div
-        className="w-full max-w-2xl rounded-t-3xl sm:rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col select-none overscroll-contain my-auto"
+        className="w-full max-w-2xl rounded-t-3xl sm:rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden max-h-[90vh] sm:max-h-[88vh] flex flex-col select-none overscroll-contain my-auto"
         onDragStart={(e) => e.preventDefault()}
         draggable={false}
       >
+        {/* Mobile iOS Pull Handle */}
+        <div className="w-12 h-1.5 rounded-full bg-slate-700/80 mx-auto mt-3.5 mb-1 shrink-0 sm:hidden" />
+
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-slate-950/40 select-none">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-sm shrink-0">
+        <div className="flex items-center justify-between px-5 sm:px-6 pt-2 pb-4 sm:py-5 border-b border-slate-800/80 bg-slate-950/40 select-none">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-sm shrink-0">
               <Award className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-white tracking-tight">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
                   {monthName} Spending Report
                 </h2>
                 {isDemoSummary && (
-                  <span className="text-[10px] bg-amber-500/20 text-amber-300 font-medium px-2 py-0.5 rounded-full border border-amber-500/30">
-                    Imaginary Preview
+                  <span className="text-[10px] bg-amber-500/20 text-amber-300 font-semibold px-2 py-0.5 rounded-full border border-amber-500/30">
+                    Preview
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                <Calendar className="w-3 h-3 text-slate-500" />
-                <span>Generated on 1st of next month ({reportGeneratedDate})</span>
+              <p className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-1">
+                <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                <span>Generated for 1st of month ({reportGeneratedDate})</span>
               </p>
             </div>
           </div>
@@ -102,17 +105,17 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
           </button>
         </div>
 
-        {/* Scrollable Report Content - strictly scrollable, no dragging */}
+        {/* Scrollable Report Content - comfortably spaced, strictly scrollable */}
         <div
-          className="p-6 overflow-y-auto space-y-6 flex-1 no-scrollbar modal-scrollable touch-pan-y overscroll-contain"
+          className="px-4 sm:px-6 py-5 sm:py-6 overflow-y-auto space-y-5 sm:space-y-6 flex-1 no-scrollbar modal-scrollable touch-pan-y overscroll-contain"
           onDragStart={(e) => e.preventDefault()}
         >
           {/* Key KPI Hero Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
             {/* Total Spent */}
-            <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-1">
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-1.5 shadow-sm">
               <span className="text-[11px] text-slate-400 font-medium">Total Spent</span>
-              <div className="text-lg font-bold text-white truncate">
+              <div className="text-base sm:text-lg font-bold text-white truncate">
                 {currencySymbol}{totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <div className="flex items-center gap-1 text-[11px]">
@@ -132,9 +135,9 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
             </div>
 
             {/* Total Income */}
-            <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-1">
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-1.5 shadow-sm">
               <span className="text-[11px] text-slate-400 font-medium">Total Income</span>
-              <div className="text-lg font-bold text-emerald-400 truncate">
+              <div className="text-base sm:text-lg font-bold text-emerald-400 truncate">
                 {currencySymbol}{totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <span className="text-[10px] text-slate-500 block">
@@ -143,9 +146,9 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
             </div>
 
             {/* Net Saved */}
-            <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-1">
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-1.5 shadow-sm">
               <span className="text-[11px] text-slate-400 font-medium">Net Saved</span>
-              <div className="text-lg font-bold text-teal-300 truncate">
+              <div className="text-base sm:text-lg font-bold text-teal-300 truncate">
                 {currencySymbol}{netSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <div className="flex items-center gap-1 text-[11px]">
@@ -155,9 +158,9 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
             </div>
 
             {/* Daily Average */}
-            <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-1">
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-1.5 shadow-sm">
               <span className="text-[11px] text-slate-400 font-medium">Daily Average</span>
-              <div className="text-lg font-bold text-white truncate">
+              <div className="text-base sm:text-lg font-bold text-white truncate">
                 {currencySymbol}{dailyAverageSpend.toFixed(2)}
               </div>
               <span className="text-[10px] text-slate-500 block">per day spend</span>

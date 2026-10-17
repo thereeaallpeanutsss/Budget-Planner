@@ -346,6 +346,81 @@ export function logoutUser(): void {
   setActiveUserId(null);
 }
 
+// Change user account password with old password verification
+export async function changeUserPassword(
+  userId: string,
+  oldPassword: string,
+  newPassword: string
+): Promise<UserAppData> {
+  const data = getUserData(userId);
+  if (!data) throw new Error('User profile not found.');
+
+  if (data.profile.passwordHash && data.profile.passwordSalt) {
+    const computed = await hashPassword(oldPassword, data.profile.passwordSalt);
+    if (computed !== data.profile.passwordHash) {
+      throw new Error('Current password is incorrect. Please enter your existing password.');
+    }
+  }
+
+  if (!newPassword || newPassword.length < 6) {
+    throw new Error('New password must be at least 6 characters long.');
+  }
+
+  const salt = Math.random().toString(36).substring(2) + Date.now().toString(36);
+  const passwordHash = await hashPassword(newPassword, salt);
+  data.profile.passwordHash = passwordHash;
+  data.profile.passwordSalt = salt;
+  saveUserData(data);
+  return data;
+}
+
+// Change user 4-digit PIN with old PIN verification
+export function changeUserPin(
+  userId: string,
+  oldPin: string,
+  newPin: string
+): UserAppData {
+  const data = getUserData(userId);
+  if (!data) throw new Error('User profile not found.');
+
+  if (data.profile.pin && data.profile.pin.trim().length > 0) {
+    if (data.profile.pin.trim() !== oldPin.trim()) {
+      throw new Error('Current 4-digit PIN is incorrect.');
+    }
+  }
+
+  const cleanNewPin = newPin.trim();
+  if (cleanNewPin && !/^\d{4}$/.test(cleanNewPin)) {
+    throw new Error('PIN must be exactly 4 numeric digits (or blank to remove).');
+  }
+
+  data.profile.pin = cleanNewPin;
+  saveUserData(data);
+  return data;
+}
+
+// Admin login verification: only log in if the user's password is entered correctly
+export async function adminLoginWithPassword(
+  userId: string,
+  password: string
+): Promise<UserAppData> {
+  const data = getUserData(userId);
+  if (!data) throw new Error('User account not found on this device.');
+
+  if (data.profile.passwordHash && data.profile.passwordSalt) {
+    const computed = await hashPassword(password, data.profile.passwordSalt);
+    if (computed !== data.profile.passwordHash) {
+      throw new Error('Incorrect password. Admins cannot access user data without the user\'s valid password.');
+    }
+  }
+
+  setActiveUserId(data.profile.id);
+  data.profile.lastActive = new Date().toISOString();
+  saveUserData(data);
+  return data;
+}
+
+
 // Custom categories management
 export function addCustomCategory(
   userId: string,

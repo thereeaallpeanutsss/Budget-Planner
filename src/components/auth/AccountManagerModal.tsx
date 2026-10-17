@@ -9,6 +9,9 @@ import {
   CheckCircle2,
   ShieldCheck,
   HardDrive,
+  Eye,
+  EyeOff,
+  AlertCircle,
 } from 'lucide-react';
 import {
   AVATAR_OPTIONS,
@@ -33,10 +36,12 @@ export const AccountManagerModal: React.FC<AccountManagerModalProps> = ({ isOpen
 
   const [activeTab, setActiveTab] = useState<'switch' | 'create'>('switch');
 
-  // Form state for creating account
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('password123');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [avatar, setAvatar] = useState(AVATAR_OPTIONS[0]);
   const [color, setColor] = useState(COLOR_OPTIONS[0]);
   const [pin, setPin] = useState('');
@@ -52,12 +57,25 @@ export const AccountManagerModal: React.FC<AccountManagerModalProps> = ({ isOpen
     if (!name.trim()) return;
     setErrorMsg(null);
 
+    if (password !== confirmPassword) {
+      setErrorMsg('Passwords do not match. Please enter the new password twice identically to prevent typos.');
+      triggerHaptic('warning');
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMsg('Password must be at least 6 characters long.');
+      triggerHaptic('warning');
+      return;
+    }
+
     try {
       const emailToUse = email.trim() || `${name.trim().toLowerCase().replace(/\s+/g, '')}@device.local`;
-      await signup(emailToUse, password || 'password123', name, avatar, color, currencyCode, seedDemo);
+      await signup(emailToUse, password, name, avatar, color, currencyCode, seedDemo);
       setName('');
       setEmail('');
-      setPassword('password123');
+      setPassword('');
+      setConfirmPassword('');
       setPin('');
       setActiveTab('switch');
       onClose();
@@ -279,22 +297,114 @@ export const AccountManagerModal: React.FC<AccountManagerModalProps> = ({ isOpen
                 />
               </div>
 
+              {/* First Password Box */}
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Account Password (min 6 chars)
-                </label>
-                <input
-                  type="password"
-                  placeholder="Create a password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
-                />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-medium text-slate-300">
+                    Account Password (min 6 chars) <span className="text-rose-400">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-[11px] text-slate-400 hover:text-emerald-400 flex items-center gap-1 transition"
+                  >
+                    {showPassword ? (
+                      <>
+                        <EyeOff className="w-3.5 h-3.5" />
+                        <span>Hide</span>
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Show</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    placeholder="Create a password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full rounded-xl bg-slate-950 border border-slate-700 pl-3.5 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-3 top-3 text-slate-400 hover:text-white"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Second Password Box (Confirm Password below first box) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-medium text-slate-300">
+                    Confirm Password <span className="text-rose-400">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="text-[11px] text-slate-400 hover:text-emerald-400 flex items-center gap-1 transition"
+                  >
+                    {showConfirmPassword ? (
+                      <>
+                        <EyeOff className="w-3.5 h-3.5" />
+                        <span>Hide</span>
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Show</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    placeholder="Re-enter password to confirm"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className={`w-full rounded-xl bg-slate-950 border pl-3.5 pr-10 py-2.5 text-sm text-white focus:outline-none ${
+                      confirmPassword && confirmPassword !== password
+                        ? 'border-rose-500 focus:border-rose-500'
+                        : confirmPassword && confirmPassword === password
+                        ? 'border-emerald-500 focus:border-emerald-500'
+                        : 'border-slate-700 focus:border-emerald-500'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-3 top-3 text-slate-400 hover:text-white"
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {confirmPassword && confirmPassword !== password && (
+                  <p className="text-[11px] text-rose-400 mt-1">Passwords do not match yet.</p>
+                )}
+                {confirmPassword && confirmPassword === password && (
+                  <p className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Passwords match
+                  </p>
+                )}
               </div>
 
               {errorMsg && (
-                <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs">
-                  {errorMsg}
+                <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                  <span>{errorMsg}</span>
                 </div>
               )}
 

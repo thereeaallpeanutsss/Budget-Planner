@@ -31,7 +31,9 @@ export const TabBar: React.FC<TabBarProps> = ({
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/85 backdrop-blur-2xl border-t border-white/10 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 px-3">
+    <nav className="md:hidden fixed inset-x-0 bottom-0 z-40 bg-slate-950/95 backdrop-blur-2xl border-t border-white/10 pb-[max(env(safe-area-inset-bottom,0px),12px)] pt-2 px-3 shadow-[0_-4px_25px_rgba(0,0,0,0.6)]">
+      {/* Bottom background extender to ensure 100% full screen coverage on mobile */}
+      <div className="absolute inset-x-0 top-full h-32 bg-slate-950 pointer-events-none" />
       <div className="flex items-center justify-around max-w-lg mx-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
