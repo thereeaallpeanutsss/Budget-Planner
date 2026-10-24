@@ -220,6 +220,7 @@ export const SettingsBackupView: React.FC<SettingsBackupViewProps> = ({
 
     try {
       updatePin(oldPin, newPin);
+      updateUserPreferences({ requirePinOnResume: true });
       setPinModalSuccess('4-Digit PIN successfully updated!');
       triggerHaptic('success');
       setTimeout(() => {
@@ -587,20 +588,64 @@ export const SettingsBackupView: React.FC<SettingsBackupViewProps> = ({
         </div>
 
         {/* Require Passcode on Launch Switch */}
-        <div className="flex items-center justify-between pt-3 border-t border-slate-800">
-          <div>
-            <span className="text-xs font-medium text-white">Require Passcode on Launch</span>
-            <p className="text-[11px] text-slate-400">
+        <div
+          onClick={() => {
+            triggerHaptic('medium');
+            if (!currentUser?.pin) {
+              handleOpenChangePin();
+            } else {
+              updateUserPreferences({
+                requirePinOnResume: !currentUser?.preferences.requirePinOnResume,
+              });
+            }
+          }}
+          className="flex items-center justify-between pt-3 border-t border-slate-800 cursor-pointer group hover:bg-slate-800/30 -mx-2 px-2 py-2 rounded-xl transition select-none"
+        >
+          <div className="pr-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-white group-hover:text-emerald-300 transition">
+                Require Passcode on Launch
+              </span>
+              {!currentUser?.pin && (
+                <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded-md font-medium">
+                  Tap to set PIN
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-400 mt-0.5">
               When enabled, the app cannot be opened without entering the correct PIN or password
             </p>
           </div>
-          <input
-            type="checkbox"
-            disabled={!currentUser?.pin}
-            checked={Boolean(currentUser?.pin && currentUser?.preferences.requirePinOnResume)}
-            onChange={(e) => updateUserPreferences({ requirePinOnResume: e.target.checked })}
-            className="w-5 h-5 rounded text-emerald-500 bg-slate-950 border-slate-700 disabled:opacity-30"
-          />
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={Boolean(currentUser?.pin && currentUser?.preferences.requirePinOnResume)}
+            onClick={(e) => {
+              e.stopPropagation();
+              triggerHaptic('medium');
+              if (!currentUser?.pin) {
+                handleOpenChangePin();
+              } else {
+                updateUserPreferences({
+                  requirePinOnResume: !currentUser?.preferences.requirePinOnResume,
+                });
+              }
+            }}
+            className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ease-in-out shrink-0 ${
+              currentUser?.pin && currentUser?.preferences.requirePinOnResume
+                ? 'bg-emerald-500'
+                : 'bg-slate-700'
+            }`}
+          >
+            <div
+              className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                currentUser?.pin && currentUser?.preferences.requirePinOnResume
+                  ? 'translate-x-6'
+                  : 'translate-x-0'
+              }`}
+            />
+          </button>
         </div>
       </div>
 

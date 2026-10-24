@@ -38,10 +38,10 @@ export const AuthScreen: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [name, setName] = useState('');
-  const [avatar, setAvatar] = useState('🌿');
+  const [avatar, setAvatar] = useState('✈️');
   const [color, setColor] = useState('#10b981');
   const [currencyCode, setCurrencyCode] = useState('USD');
-  const [seedDemo, setSeedDemo] = useState(true);
+  const [seedDemo, setSeedDemo] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);

@@ -99,9 +99,11 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
   };
 
   const handleDeleteCategory = (cat: Category) => {
-    if (!cat.isCustom) return;
     triggerHaptic('medium');
-    removeCategoryItem(cat.id);
+    if (window.confirm(`Are you sure you want to delete the "${cat.name}" category?`)) {
+      removeCategoryItem(cat.id);
+      triggerHaptic('success');
+    }
   };
 
   return (
@@ -231,15 +233,14 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                       </div>
                     </div>
 
-                    {cat.isCustom && (
-                      <button
-                        onClick={() => handleDeleteCategory(cat)}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
-                        title="Delete custom category"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCategory(cat)}
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                      title={`Delete "${cat.name}" category`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 ))}
               </div>

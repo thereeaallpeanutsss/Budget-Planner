@@ -19,7 +19,7 @@ import {
 import { CategoryIcon } from '../common/CategoryIcon';
 import { triggerHaptic } from '../../services/storage';
 import { MonthlySpendingSummary } from '../../types/budget';
-import { getMonthlySummaryForMonth, getImaginarySeptemberSummary } from '../../utils/monthlySummary';
+import { getMonthlySummaryForMonth } from '../../utils/monthlySummary';
 
 interface DashboardViewProps {
   onOpenAddModal: (type?: 'expense' | 'income') => void;
@@ -80,22 +80,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return day <= 3;
   }, []);
 
-  // Compute latest monthly summary (e.g. on Nov 1-3 shows October; on Oct 1-3 shows September demo)
+  // Compute latest monthly summary for the prior month if user has prior month transactions
   const latestSummary = useMemo(() => {
     const now = new Date();
     const priorDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const priorMonthKey = `${priorDate.getFullYear()}-${String(priorDate.getMonth() + 1).padStart(2, '0')}`;
 
     const priorTxs = transactions.filter((t) => t.date.startsWith(priorMonthKey));
-    if (priorMonthKey === '2026-09' || priorTxs.length === 0) {
-      return getImaginarySeptemberSummary();
+    if (priorTxs.length === 0) {
+      return null;
     }
     return getMonthlySummaryForMonth(priorMonthKey, transactions, categories);
   }, [transactions, categories]);
 
   const handleOpenMonthlyReport = () => {
-    triggerHaptic('success');
-    if (onOpenReportModal) {
+    if (latestSummary && onOpenReportModal) {
+      triggerHaptic('success');
       onOpenReportModal(latestSummary);
     }
   };
@@ -144,8 +144,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </button>
       </div>
 
-      {/* Linked on the first 3 days of a month (and for October demo review) */}
-      {(isFirstThreeDays || latestSummary.isDemoSummary) && (
+      {/* Linked on the first 3 days of a month if prior month data exists */}
+      {isFirstThreeDays && latestSummary && (
         <div
           onClick={handleOpenMonthlyReport}
           className="p-4 rounded-3xl bg-gradient-to-r from-emerald-950/90 via-teal-950/70 to-slate-900 border border-emerald-500/40 shadow-xl cursor-pointer hover:border-emerald-400 transition ios-touch-active group"
@@ -160,11 +160,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider bg-emerald-950/90 px-2 py-0.5 rounded-full border border-emerald-500/30">
                     Day 1–3 Featured Summary
                   </span>
-                  {latestSummary.isDemoSummary && (
-                    <span className="text-[10px] text-amber-300 bg-amber-500/20 px-1.5 py-0.2 rounded-md font-medium border border-amber-500/30">
-                      Sample Data
-                    </span>
-                  )}
                 </div>
                 <h3 className="text-sm font-bold text-white mt-1 group-hover:text-emerald-300 transition">
                   {latestSummary.monthName} Monthly Spending Review

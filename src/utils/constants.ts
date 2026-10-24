@@ -42,7 +42,7 @@ export const DEFAULT_CATEGORIES: Category[] = [
   ...DEFAULT_INCOME_CATEGORIES,
 ];
 
-export const AVATAR_OPTIONS = ['🦊', '🦉', '🐻', '🦁', '🐼', '🐯', '🚀', '⚡', '💎', '🌿', '☕', '🎨'];
+export const AVATAR_OPTIONS = ['✈️', '🌿', '🦊', '🦉', '🐻', '🦁', '🐼', '🐯', '🚀', '⚡', '💎', '☕', '🎨'];
 
 export const COLOR_OPTIONS = [
   '#10b981', // Emerald

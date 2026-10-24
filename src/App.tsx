@@ -178,8 +178,8 @@ const MainContent: React.FC = () => {
           )}
         </main>
 
-        {/* Floating Quick Action Button on Mobile */}
-        <div className="md:hidden fixed bottom-20 right-4 z-30">
+        {/* Floating Quick Action Button on Mobile - Positioned above TabBar */}
+        <div className="md:hidden fixed bottom-[calc(max(env(safe-area-inset-bottom,0px),14px)+68px)] right-4 z-30">
           <button
             onClick={() => handleOpenAddModal('expense')}
             title="Add transaction"

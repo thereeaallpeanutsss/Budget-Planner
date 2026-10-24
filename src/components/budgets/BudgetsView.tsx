@@ -37,6 +37,7 @@ export const BudgetsView: React.FC<BudgetsViewProps> = ({ onOpenCategoryManager 
   // Dialog states
   const [selectedCatForBudget, setSelectedCatForBudget] = useState<string | null>(null);
   const [limitInput, setLimitInput] = useState('');
+  const [budgetPeriod, setBudgetPeriod] = useState<'monthly' | 'weekly'>('monthly');
 
   const [isSubModalOpen, setIsSubModalOpen] = useState(false);
   const [subName, setSubName] = useState('');
@@ -50,6 +51,41 @@ export const BudgetsView: React.FC<BudgetsViewProps> = ({ onOpenCategoryManager 
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   }, []);
+
+  // Timeframe of one week: Monday to Sunday
+  // If one week begins in one month and ends in another, the weekly budget is still kept for the entire week and not recalculated before the week has ended.
+  const weekTimeframe = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay(); // 0 is Sun, 1 is Mon, ..., 6 is Sat
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+
+    const startStr = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+    const endStr = `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`;
+
+    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+    const label = `${monday.toLocaleDateString(undefined, options)} – ${sunday.toLocaleDateString(undefined, options)}`;
+
+    return { startStr, endStr, label };
+  }, []);
+
+  // Category expenses for the current Monday-Sunday week
+  const weeklyCategorySpendMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const t of transactions) {
+      if (t.type === 'expense' && t.date >= weekTimeframe.startStr && t.date <= weekTimeframe.endStr) {
+        map.set(t.categoryId, (map.get(t.categoryId) || 0) + t.amount);
+      }
+    }
+    return map;
+  }, [transactions, weekTimeframe]);
 
   const categorySpendMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -68,6 +104,27 @@ export const BudgetsView: React.FC<BudgetsViewProps> = ({ onOpenCategoryManager 
   const budgetMap = useMemo(() => {
     return new Map(budgets.map((b) => [b.categoryId, b]));
   }, [budgets]);
+
+  // Weekly budget health: monthly budget divided by 4
+  const weeklyHealth = useMemo(() => {
+    const totalWeeklyBudget = budgetHealth.totalBudgeted / 4;
+    let totalWeeklySpentInBudgets = 0;
+    for (const b of budgets) {
+      totalWeeklySpentInBudgets += weeklyCategorySpendMap.get(b.categoryId) || 0;
+    }
+    const remaining = totalWeeklyBudget - totalWeeklySpentInBudgets;
+    const percentUsed =
+      totalWeeklyBudget > 0 ? Math.round((totalWeeklySpentInBudgets / totalWeeklyBudget) * 100) : 0;
+
+    return {
+      totalBudgeted: totalWeeklyBudget,
+      totalSpentInBudgets: totalWeeklySpentInBudgets,
+      remaining,
+      percentUsed,
+    };
+  }, [budgetHealth.totalBudgeted, budgets, weeklyCategorySpendMap]);
+
+  const activeHealth = budgetPeriod === 'weekly' ? weeklyHealth : budgetHealth;
 
   const handleOpenBudgetModal = (categoryId: string) => {
     triggerHaptic('light');
@@ -116,37 +173,82 @@ export const BudgetsView: React.FC<BudgetsViewProps> = ({ onOpenCategoryManager 
         </div>
       </div>
 
-      {/* Monthly Budget Overview Progress */}
+      {/* Overall Budget Overview Progress (Monthly vs Weekly Toggle) */}
       <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400 uppercase tracking-wider font-medium">
               Overall Budget Health
             </span>
-            <div className="text-2xl font-bold text-white mt-1">
-              {formatCurrency(budgetHealth.totalSpentInBudgets)}
+            <span className="text-[10px] text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/20 font-medium">
+              {budgetPeriod === 'weekly' ? `Week: ${weekTimeframe.label}` : 'Monthly'}
+            </span>
+          </div>
+
+          {/* Toggle between Monthly and Weekly Budget */}
+          <div className="flex items-center p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs font-semibold select-none">
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic('light');
+                setBudgetPeriod('monthly');
+              }}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                budgetPeriod === 'monthly'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic('light');
+                setBudgetPeriod('weekly');
+              }}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                budgetPeriod === 'weekly'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Weekly
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-1">
+          <div>
+            <div className="text-2xl font-bold text-white">
+              {formatCurrency(activeHealth.totalSpentInBudgets)}
               <span className="text-sm font-normal text-slate-400 ml-1.5">
-                of {formatCurrency(budgetHealth.totalBudgeted)}
+                of {formatCurrency(activeHealth.totalBudgeted)}
               </span>
             </div>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {budgetPeriod === 'weekly'
+                ? `Monday–Sunday timeframe (Monthly ÷ 4). Fixed for entire week across month borders.`
+                : `Total monthly spending limit across all active category budgets.`}
+            </p>
           </div>
 
           <div className="text-right">
             <span
               className={`text-sm font-bold ${
-                budgetHealth.percentUsed > 100
+                activeHealth.percentUsed > 100
                   ? 'text-rose-400'
-                  : budgetHealth.percentUsed > 85
+                  : activeHealth.percentUsed > 85
                   ? 'text-amber-400'
                   : 'text-emerald-400'
               }`}
             >
-              {budgetHealth.percentUsed}%
+              {activeHealth.percentUsed}%
             </span>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              {budgetHealth.remaining >= 0
-                ? `${formatCurrency(budgetHealth.remaining)} left`
-                : `${formatCurrency(Math.abs(budgetHealth.remaining))} over budget`}
+              {activeHealth.remaining >= 0
+                ? `${formatCurrency(activeHealth.remaining)} left`
+                : `${formatCurrency(Math.abs(activeHealth.remaining))} over budget`}
             </p>
           </div>
         </div>
@@ -155,13 +257,13 @@ export const BudgetsView: React.FC<BudgetsViewProps> = ({ onOpenCategoryManager 
         <div className="w-full h-3 rounded-full bg-slate-800 overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${
-              budgetHealth.percentUsed > 100
+              activeHealth.percentUsed > 100
                 ? 'bg-rose-500'
-                : budgetHealth.percentUsed > 85
+                : activeHealth.percentUsed > 85
                 ? 'bg-amber-500'
                 : 'bg-emerald-500'
             }`}
-            style={{ width: `${Math.min(100, budgetHealth.percentUsed)}%` }}
+            style={{ width: `${Math.min(100, activeHealth.percentUsed)}%` }}
           />
         </div>
       </div>
@@ -195,8 +297,12 @@ export const BudgetsView: React.FC<BudgetsViewProps> = ({ onOpenCategoryManager 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {expenseCategories.map((cat) => {
             const budget = budgetMap.get(cat.id);
-            const spent = categorySpendMap.get(cat.id) || 0;
-            const limit = budget?.monthlyLimit || 0;
+            const monthlyLimit = budget?.monthlyLimit || 0;
+            const limit = budgetPeriod === 'weekly' ? monthlyLimit / 4 : monthlyLimit;
+            const spent =
+              budgetPeriod === 'weekly'
+                ? weeklyCategorySpendMap.get(cat.id) || 0
+                : categorySpendMap.get(cat.id) || 0;
             const percent = limit > 0 ? Math.round((spent / limit) * 100) : 0;
             const isOver = limit > 0 && spent > limit;
 
@@ -216,7 +322,11 @@ export const BudgetsView: React.FC<BudgetsViewProps> = ({ onOpenCategoryManager 
                     <div>
                       <h3 className="text-xs font-semibold text-white">{cat.name}</h3>
                       <p className="text-[11px] text-slate-400">
-                        {limit > 0 ? `${formatCurrency(spent)} of ${formatCurrency(limit)}` : 'No limit set'}
+                        {monthlyLimit > 0
+                          ? budgetPeriod === 'weekly'
+                            ? `${formatCurrency(spent)} of ${formatCurrency(limit)} /wk`
+                            : `${formatCurrency(spent)} of ${formatCurrency(limit)} /mo`
+                          : 'No limit set'}
                       </p>
                     </div>
                   </div>

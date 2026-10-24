@@ -46,7 +46,7 @@ export const AccountManagerModal: React.FC<AccountManagerModalProps> = ({ isOpen
   const [color, setColor] = useState(COLOR_OPTIONS[0]);
   const [pin, setPin] = useState('');
   const [currencyCode, setCurrencyCode] = useState('USD');
-  const [seedDemo, setSeedDemo] = useState(true);
+  const [seedDemo, setSeedDemo] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 

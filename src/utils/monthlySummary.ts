@@ -7,175 +7,13 @@ export function formatMonthName(yearMonth: string): string {
   return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 }
 
-// Imaginary September 2026 Report (available on October 1st)
-export function getImaginarySeptemberSummary(): MonthlySpendingSummary {
-  const dailyTrend = [
-    { day: 1, amount: 1245.0 }, // Rent + groceries
-    { day: 2, amount: 28.5 },
-    { day: 3, amount: 42.0 },
-    { day: 4, amount: 65.2 },
-    { day: 5, amount: 110.0 },
-    { day: 6, amount: 35.4 },
-    { day: 7, amount: 18.0 },
-    { day: 8, amount: 54.0 },
-    { day: 9, amount: 31.5 },
-    { day: 10, amount: 88.0 },
-    { day: 11, amount: 72.0 },
-    { day: 12, amount: 124.5 },
-    { day: 13, amount: 45.0 },
-    { day: 14, amount: 22.0 },
-    { day: 15, amount: 168.0 }, // Mid-month groceries & utilities
-    { day: 16, amount: 19.5 },
-    { day: 17, amount: 38.0 },
-    { day: 18, amount: 62.0 },
-    { day: 19, amount: 94.0 },
-    { day: 20, amount: 45.0 },
-    { day: 21, amount: 14.5 },
-    { day: 22, amount: 32.0 },
-    { day: 23, amount: 58.0 },
-    { day: 24, amount: 79.9 },
-    { day: 25, amount: 115.0 },
-    { day: 26, amount: 42.5 },
-    { day: 27, amount: 24.0 },
-    { day: 28, amount: 36.5 },
-    { day: 29, amount: 51.0 },
-    { day: 30, amount: 31.0 },
-  ];
-
-  const categoryBreakdown: MonthlyCategoryStats[] = [
-    {
-      id: 'cat_housing',
-      name: 'Housing & Rent',
-      icon: 'Home',
-      color: '#6366f1',
-      amount: 1200.0,
-      percentage: 42.2,
-      priorAmount: 1200.0,
-      changePercent: 0.0,
-    },
-    {
-      id: 'cat_groceries',
-      name: 'Groceries & Supplies',
-      icon: 'ShoppingCart',
-      color: '#10b981',
-      amount: 620.0,
-      percentage: 21.8,
-      priorAmount: 590.0,
-      changePercent: 5.1,
-    },
-    {
-      id: 'cat_dining',
-      name: 'Food & Dining Out',
-      icon: 'Utensils',
-      color: '#f97316',
-      amount: 310.0,
-      percentage: 10.9,
-      priorAmount: 425.0,
-      changePercent: -27.1,
-    },
-    {
-      id: 'cat_shopping',
-      name: 'Shopping & Apparel',
-      icon: 'ShoppingBag',
-      color: '#8b5cf6',
-      amount: 195.0,
-      percentage: 6.8,
-      priorAmount: 280.0,
-      changePercent: -30.4,
-    },
-    {
-      id: 'cat_utilities',
-      name: 'Bills & Utilities',
-      icon: 'Zap',
-      color: '#eab308',
-      amount: 178.5,
-      percentage: 6.3,
-      priorAmount: 210.0,
-      changePercent: -15.0,
-    },
-    {
-      id: 'cat_transport',
-      name: 'Transport & Fuel',
-      icon: 'Car',
-      color: '#3b82f6',
-      amount: 145.0,
-      percentage: 5.1,
-      priorAmount: 180.0,
-      changePercent: -19.4,
-    },
-    {
-      id: 'cat_entertainment',
-      name: 'Entertainment & Media',
-      icon: 'Film',
-      color: '#ec4899',
-      amount: 122.0,
-      percentage: 4.3,
-      priorAmount: 145.0,
-      changePercent: -15.9,
-    },
-    {
-      id: 'cat_health',
-      name: 'Health & Fitness',
-      icon: 'HeartPulse',
-      color: '#ef4444',
-      amount: 75.0,
-      percentage: 2.6,
-      priorAmount: 90.0,
-      changePercent: -16.7,
-    },
-  ];
-
-  return {
-    month: '2026-09',
-    monthName: 'September 2026',
-    reportGeneratedDate: '2026-10-01',
-    totalExpense: 2845.5,
-    totalIncome: 4200.0,
-    netSavings: 1354.5,
-    savingsRate: 32,
-    dailyAverageSpend: 94.85,
-    transactionCount: 38,
-    topCategory: {
-      name: 'Housing & Rent',
-      icon: 'Home',
-      color: '#6366f1',
-      amount: 1200.0,
-      percentage: 42.2,
-    },
-    priorMonthComparison: {
-      priorMonth: '2026-08',
-      priorMonthName: 'August 2026',
-      priorTotalExpense: 3120.0,
-      priorTotalIncome: 4000.0,
-      priorNetSavings: 880.0,
-      expenseDiff: -274.5,
-      expenseChangePercent: -8.8,
-      savingsDiff: 474.5,
-    },
-    categoryBreakdown,
-    dailyTrend,
-    insights: [
-      'You reduced total monthly spending by 8.8% compared to August (saved $274.50 more).',
-      'Dining out dropped significantly by 27.1%, cutting $115 in discretionary expenses.',
-      'Your net savings rate reached 32%, far surpassing the recommended 20% financial wellness benchmark.',
-      'Shopping spending decreased by 30.4% from $280 to $195.',
-      'Housing accounted for the largest fixed expense ($1,200), followed by Groceries ($620).',
-    ],
-    isDemoSummary: true,
-  };
-}
-
-// Get or compute monthly summary for any month YYYY-MM
+// Get or compute monthly summary for any month YYYY-MM based strictly on user data
 export function getMonthlySummaryForMonth(
   targetYearMonth: string,
   transactions: Transaction[],
   categories: Category[]
 ): MonthlySpendingSummary {
-  // If target is September 2026 and user has few or no September records, use the rich demo summary
   const targetTxs = transactions.filter((t) => t.date.startsWith(targetYearMonth));
-  if (targetYearMonth === '2026-09' && targetTxs.length < 5) {
-    return getImaginarySeptemberSummary();
-  }
 
   const [year, month] = targetYearMonth.split('-').map(Number);
   const targetDate = new Date(year, month - 1, 1);
@@ -225,12 +63,6 @@ export function getMonthlySummaryForMonth(
     } else {
       priorTotalIncome += t.amount;
     }
-  }
-
-  // If prior month had no records (e.g. October vs September where September was imaginary), estimate sensible baseline
-  if (priorTotalExpense === 0 && targetYearMonth === '2026-10') {
-    priorTotalExpense = 2845.5;
-    priorTotalIncome = 4200.0;
   }
 
   const netSavings = totalIncome - totalExpense;
