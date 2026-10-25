@@ -89,8 +89,9 @@ export const CalendarSpendingView: React.FC<CalendarSpendingViewProps> = ({
     const lastDayDate = new Date(year, month + 1, 0);
 
     const totalDays = lastDayDate.getDate();
-    // 0 = Sunday, 1 = Monday, etc.
-    const startDayOfWeek = firstDayDate.getDay();
+    // Week starts with Monday (0) and ends with Sunday (6)
+    // firstDayDate.getDay() gives 0 for Sunday, 1 for Monday, etc.
+    const startDayOfWeek = (firstDayDate.getDay() + 6) % 7;
 
     const monthString = `${year}-${String(month + 1).padStart(2, '0')}`;
     const monthDisplayName = firstDayDate.toLocaleDateString(undefined, {
@@ -228,11 +229,7 @@ export const CalendarSpendingView: React.FC<CalendarSpendingViewProps> = ({
               1st of Month Summary Archive
             </h4>
             <p className="text-[11px] text-slate-400">
-              {monthData.monthString === '2026-10' ? (
-                <>September 2026 Comprehensive Review is ready (imaginary demo preloaded!)</>
-              ) : (
-                <>Monthly spending reports are auto-compiled on Day 1 of each month</>
-              )}
+              Monthly spending reports are auto-compiled on Day 1 of each month
             </p>
           </div>
         </div>
@@ -254,9 +251,9 @@ export const CalendarSpendingView: React.FC<CalendarSpendingViewProps> = ({
 
       {/* Calendar Grid Container */}
       <div className="p-4 sm:p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-3">
-        {/* Day-of-week header */}
+        {/* Day-of-week header: Monday to Sunday */}
         <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center text-[11px] font-semibold text-slate-400 pb-1">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
             <div key={d} className="py-1">
               {d}
             </div>

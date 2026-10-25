@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useContext, useMemo, useEffect } from 'react';
 import {
   Transaction,
   BudgetLimit,
@@ -45,9 +45,12 @@ interface BudgetContextType {
   netSavings: number;
   savingsRate: number; // 0 - 100
   allTimeNet: number;
+  monthlyIncome: number;
+  totalActiveMonthlySubscriptions: number;
   budgetHealth: {
     totalBudgeted: number;
     totalSpentInBudgets: number;
+    totalSubscriptions: number;
     remaining: number;
     percentUsed: number;
   };
@@ -56,6 +59,7 @@ interface BudgetContextType {
   
   // Actions
   formatCurrency: (amount: number, compact?: boolean) => string;
+  setMonthlyIncome: (amount: number) => void;
   addTransaction: (tx: Omit<Transaction, 'id' | 'userId' | 'createdAt'>) => void;
   updateTransaction: (tx: Transaction) => void;
   deleteTransaction: (id: string) => void;
@@ -74,7 +78,7 @@ interface BudgetContextType {
 const BudgetContext = createContext<BudgetContextType | null>(null);
 
 export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { userData, updateCurrentUserData } = useAuth();
+  const { userData, updateCurrentUserData, updateUserPreferences } = useAuth();
 
   const transactions = useMemo(() => userData?.transactions || [], [userData]);
   const budgets = useMemo(() => userData?.budgets || [], [userData]);
@@ -82,6 +86,21 @@ export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const subscriptions = useMemo(() => userData?.subscriptions || [], [userData]);
   const categories = useMemo(() => userData?.categories || [], [userData]);
   const currency = userData?.profile.currency;
+
+  const monthlyIncome = useMemo(() => {
+    return userData?.profile.preferences.monthlyIncome || 0;
+  }, [userData]);
+
+  const totalActiveMonthlySubscriptions = useMemo(() => {
+    return subscriptions
+      .filter((s) => s.active)
+      .reduce((acc, s) => {
+        if (s.billingCycle === 'monthly') return acc + s.amount;
+        if (s.billingCycle === 'yearly') return acc + (s.amount / 12);
+        if (s.billingCycle === 'weekly') return acc + (s.amount * 4);
+        return acc + s.amount;
+      }, 0);
+  }, [subscriptions]);
 
   const formatCurrency = (amount: number, compact = false): string => {
     const symbol = currency?.symbol || '$';
@@ -113,6 +132,89 @@ export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const m = String(now.getMonth() + 1).padStart(2, '0');
     return `${y}-${m}`;
   }, []);
+
+  // Auto-renew monthly baseline income on the 1st of every month
+  // and ensure active subscriptions appear on their date in every month
+  useEffect(() => {
+    if (!userData) return;
+
+    let hasChanges = false;
+    let updatedTxs = [...userData.transactions];
+
+    // 1. Auto-renew monthly base income on the 1st of current month
+    const baseIncome = userData.profile.preferences.monthlyIncome;
+    if (baseIncome && baseIncome > 0) {
+      const hasIncomeThisMonth = updatedTxs.some(
+        (t) =>
+          t.id === `tx_income_${currentMonthPrefix}` ||
+          (t.type === 'income' &&
+            t.isRecurring &&
+            t.date.startsWith(currentMonthPrefix) &&
+            t.note.includes('Monthly Base Income'))
+      );
+      if (!hasIncomeThisMonth) {
+        const salaryCat =
+          userData.categories.find((c) => c.type === 'income') || userData.categories[0];
+        const newIncomeTx: Transaction = {
+          id: `tx_income_${currentMonthPrefix}`,
+          userId: userData.profile.id,
+          type: 'income',
+          amount: baseIncome,
+          categoryId: salaryCat?.id || 'cat_salary',
+          date: `${currentMonthPrefix}-01`,
+          time: '08:00',
+          note: 'Monthly Base Income',
+          isRecurring: true,
+          recurringInterval: 'monthly',
+          createdAt: `${currentMonthPrefix}-01T08:00:00.000Z`,
+        };
+        updatedTxs = [newIncomeTx, ...updatedTxs];
+        hasChanges = true;
+      }
+    }
+
+    // 2. Ensure every active recurring subscription appears on its set date in every month
+    for (const sub of userData.subscriptions) {
+      if (!sub.active) continue;
+      const dayStr = sub.nextDueDate ? sub.nextDueDate.split('-')[2] || '01' : '01';
+      const scheduledDate = `${currentMonthPrefix}-${dayStr.padStart(2, '0')}`;
+      const subTxId = `tx_sub_${sub.id}_${currentMonthPrefix}`;
+
+      const hasSubThisMonth = updatedTxs.some(
+        (t) =>
+          t.id === subTxId ||
+          (t.type === 'expense' &&
+            t.isRecurring &&
+            t.date.startsWith(currentMonthPrefix) &&
+            t.note.toLowerCase().includes(sub.name.toLowerCase()))
+      );
+
+      if (!hasSubThisMonth) {
+        const autoSubTx: Transaction = {
+          id: subTxId,
+          userId: userData.profile.id,
+          type: 'expense',
+          amount: sub.amount,
+          categoryId: sub.categoryId || 'cat_subs',
+          date: scheduledDate,
+          time: '09:00',
+          note: `Recurring: ${sub.name}`,
+          isRecurring: true,
+          recurringInterval: sub.billingCycle,
+          createdAt: `${scheduledDate}T09:00:00.000Z`,
+        };
+        updatedTxs = [autoSubTx, ...updatedTxs];
+        hasChanges = true;
+      }
+    }
+
+    if (hasChanges) {
+      updateCurrentUserData((prev) => ({
+        ...prev,
+        transactions: updatedTxs,
+      }));
+    }
+  }, [userData?.profile.id, currentMonthPrefix, userData?.subscriptions, userData?.profile.preferences.monthlyIncome]);
 
   const currentMonthTransactions = useMemo(() => {
     return transactions.filter((t) => t.date.startsWith(currentMonthPrefix));
@@ -166,10 +268,11 @@ export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return {
       totalBudgeted,
       totalSpentInBudgets,
+      totalSubscriptions: totalActiveMonthlySubscriptions,
       remaining,
       percentUsed,
     };
-  }, [budgets, categorySpendMap]);
+  }, [budgets, categorySpendMap, totalActiveMonthlySubscriptions]);
 
   const budgetAlerts = useMemo((): BudgetAlert[] => {
     const alerts: BudgetAlert[] = [];
@@ -226,6 +329,67 @@ export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [subscriptions, categories]);
 
   // Actions
+  const setMonthlyIncome = (amount: number) => {
+    if (!userData) return;
+    const num = Math.max(0, amount);
+    updateUserPreferences({ monthlyIncome: num });
+
+    const salaryCategory =
+      userData.categories.find((c) => c.type === 'income') || userData.categories[0];
+    const txId = `tx_income_${currentMonthPrefix}`;
+
+    updateCurrentUserData((prev) => {
+      const existingIdx = prev.transactions.findIndex(
+        (t) =>
+          t.id === txId ||
+          (t.type === 'income' &&
+            t.isRecurring &&
+            t.date.startsWith(currentMonthPrefix) &&
+            t.note.includes('Monthly Base Income'))
+      );
+
+      let updatedTxs = [...prev.transactions];
+      if (existingIdx >= 0) {
+        if (num > 0) {
+          updatedTxs[existingIdx] = {
+            ...updatedTxs[existingIdx],
+            amount: num,
+          };
+        } else {
+          updatedTxs.splice(existingIdx, 1);
+        }
+      } else if (num > 0) {
+        const newIncomeTx: Transaction = {
+          id: txId,
+          userId: prev.profile.id,
+          type: 'income',
+          amount: num,
+          categoryId: salaryCategory?.id || 'cat_salary',
+          date: `${currentMonthPrefix}-01`,
+          time: '08:00',
+          note: 'Monthly Base Income',
+          isRecurring: true,
+          recurringInterval: 'monthly',
+          createdAt: new Date().toISOString(),
+        };
+        updatedTxs = [newIncomeTx, ...updatedTxs];
+      }
+
+      return {
+        ...prev,
+        transactions: updatedTxs,
+        profile: {
+          ...prev.profile,
+          preferences: {
+            ...prev.profile.preferences,
+            monthlyIncome: num,
+          },
+        },
+      };
+    });
+    triggerHaptic('success');
+  };
+
   const addTransaction = (tx: Omit<Transaction, 'id' | 'userId' | 'createdAt'>) => {
     if (!userData) return;
     const now = new Date();
@@ -446,10 +610,13 @@ export const BudgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         netSavings,
         savingsRate,
         allTimeNet,
+        monthlyIncome,
+        totalActiveMonthlySubscriptions,
         budgetHealth,
         budgetAlerts,
         upcomingBills,
         formatCurrency,
+        setMonthlyIncome,
         addTransaction,
         updateTransaction,
         deleteTransaction,

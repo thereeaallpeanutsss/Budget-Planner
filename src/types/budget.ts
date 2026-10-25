@@ -8,6 +8,7 @@ export interface UserPreferences {
   requirePinOnResume: boolean;
   compactView: boolean;
   monthStartDay: number;
+  monthlyIncome?: number;
 }
 
 export interface CurrencyConfig {

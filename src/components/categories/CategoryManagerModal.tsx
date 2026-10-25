@@ -10,6 +10,7 @@ import {
   FolderPlus,
   Sparkles,
   Palette,
+  Pencil,
 } from 'lucide-react';
 import { CategoryIcon } from '../common/CategoryIcon';
 import { triggerHaptic } from '../../services/storage';
@@ -69,11 +70,12 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
   onClose,
   defaultType = 'expense',
 }) => {
-  const { userData, addCategory, removeCategoryItem } = useAuth();
+  const { userData, addCategory, updateCategoryItem, removeCategoryItem } = useAuth();
   const [activeTab, setActiveTab] = useState<TransactionType>(defaultType);
   const [isCreating, setIsCreating] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
-  // New Category Form
+  // Category Form State
   const [name, setName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('Tag');
   const [selectedColor, setSelectedColor] = useState('#10b981');
@@ -82,19 +84,51 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
 
   const currentCategories = userData.categories.filter((c) => c.type === activeTab);
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleStartCreate = () => {
+    triggerHaptic('light');
+    setEditingCategory(null);
+    setName('');
+    setSelectedIcon('Tag');
+    setSelectedColor('#10b981');
+    setIsCreating(true);
+  };
+
+  const handleStartEdit = (cat: Category) => {
+    triggerHaptic('light');
+    setEditingCategory(cat);
+    setName(cat.name);
+    setSelectedIcon(cat.icon);
+    setSelectedColor(cat.color);
+    setActiveTab(cat.type);
+    setIsCreating(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    addCategory({
-      name: name.trim(),
-      icon: selectedIcon,
-      color: selectedColor,
-      type: activeTab,
-    });
+    if (editingCategory) {
+      updateCategoryItem({
+        ...editingCategory,
+        name: name.trim(),
+        icon: selectedIcon,
+        color: selectedColor,
+        type: activeTab,
+      });
+      triggerHaptic('success');
+    } else {
+      addCategory({
+        name: name.trim(),
+        icon: selectedIcon,
+        color: selectedColor,
+        type: activeTab,
+      });
+      triggerHaptic('success');
+    }
 
     setName('');
     setSelectedIcon('Tag');
+    setEditingCategory(null);
     setIsCreating(false);
   };
 
@@ -194,10 +228,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                   {currentCategories.length} categories available
                 </span>
                 <button
-                  onClick={() => {
-                    triggerHaptic('light');
-                    setIsCreating(true);
-                  }}
+                  onClick={handleStartCreate}
                   className="flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3 py-1.5 rounded-xl shadow-md ios-touch-active"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -233,29 +264,52 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteCategory(cat)}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
-                      title={`Delete "${cat.name}" category`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleStartEdit(cat)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition"
+                        title={`Edit "${cat.name}" category`}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCategory(cat)}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                        title={`Delete "${cat.name}" category`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             </>
           ) : (
-            /* Create Custom Category Form */
-            <form onSubmit={handleCreateSubmit} className="space-y-4 animate-fade-in">
+            /* Create / Edit Category Form */
+            <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in">
               <div className="flex items-center justify-between pb-1 border-b border-slate-800">
                 <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-                  <FolderPlus className="w-4 h-4 text-emerald-400" />
-                  Add Custom {activeTab === 'expense' ? 'Expense' : 'Income'} Category
+                  {editingCategory ? (
+                    <>
+                      <Pencil className="w-4 h-4 text-emerald-400" />
+                      Edit "{editingCategory.name}" Category
+                    </>
+                  ) : (
+                    <>
+                      <FolderPlus className="w-4 h-4 text-emerald-400" />
+                      Add Custom {activeTab === 'expense' ? 'Expense' : 'Income'} Category
+                    </>
+                  )}
                 </h4>
                 <button
                   type="button"
-                  onClick={() => setIsCreating(false)}
+                  onClick={() => {
+                    setEditingCategory(null);
+                    setIsCreating(false);
+                  }}
                   className="text-xs text-slate-400 hover:text-white"
                 >
                   Cancel
@@ -353,7 +407,10 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
               <div className="flex items-center gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsCreating(false)}
+                  onClick={() => {
+                    setEditingCategory(null);
+                    setIsCreating(false);
+                  }}
                   className="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium"
                 >
                   Back
@@ -363,7 +420,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                   className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md flex items-center justify-center gap-1.5"
                 >
                   <Check className="w-4 h-4" />
-                  Save Category
+                  {editingCategory ? 'Update Category' : 'Save Category'}
                 </button>
               </div>
             </form>

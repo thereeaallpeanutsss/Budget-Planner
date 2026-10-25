@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useBudget } from '../../context/BudgetContext';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -15,6 +15,10 @@ import {
   Clock,
   PiggyBank,
   Award,
+  X,
+  Check,
+  RotateCcw,
+  DollarSign,
 } from 'lucide-react';
 import { CategoryIcon } from '../common/CategoryIcon';
 import { triggerHaptic } from '../../services/storage';
@@ -34,9 +38,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenAccountModal,
   onOpenReportModal,
 }) => {
-  const {
-    currentUser,
-  } = useAuth();
+  const { currentUser } = useAuth();
 
   const {
     transactions,
@@ -48,10 +50,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     budgetHealth,
     budgetAlerts,
     upcomingBills,
+    monthlyIncome,
+    totalActiveMonthlySubscriptions,
     formatCurrency,
+    setMonthlyIncome,
     markSubscriptionPaid,
     deleteTransaction,
   } = useBudget();
+
+  // Cashflow View Toggle (Monthly vs Weekly)
+  const [cashflowPeriod, setCashflowPeriod] = useState<'monthly' | 'weekly'>('monthly');
+
+  // Monthly Income Configuration Modal
+  const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
+  const [incomeInput, setIncomeInput] = useState('');
 
   // Days remaining in current month
   const daysRemainingInMonth = useMemo(() => {
@@ -60,11 +72,50 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return Math.max(1, lastDay - now.getDate());
   }, []);
 
-  // Safe daily spend allowance calculation
-  const safeDailyAllowance = useMemo(() => {
-    const remaining = Math.max(0, budgetHealth.remaining);
-    return remaining / daysRemainingInMonth;
-  }, [budgetHealth.remaining, daysRemainingInMonth]);
+  // Timeframe of one week: Monday to Sunday
+  const weekTimeframe = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay(); // 0 is Sun, 1 is Mon, ..., 6 is Sat
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+
+    const startStr = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+    const endStr = `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`;
+
+    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+    const label = `${monday.toLocaleDateString(undefined, options)} – ${sunday.toLocaleDateString(undefined, options)}`;
+
+    return { startStr, endStr, label };
+  }, []);
+
+  // Weekly expenses: all expenses entered in this Monday-Sunday week
+  const weeklyExpenses = useMemo(() => {
+    return transactions
+      .filter(
+        (t) =>
+          t.type === 'expense' &&
+          t.date >= weekTimeframe.startStr &&
+          t.date <= weekTimeframe.endStr
+      )
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [transactions, weekTimeframe]);
+
+  // Weekly income: (Total income or budget minus subscriptions) divided by 4 weeks
+  // E.g. If budget/income is 870 and rent is 520, weekly available is 350 / 4 = 87.5
+  const weeklyIncome = useMemo(() => {
+    const base = totalIncome > 0 ? totalIncome : (budgetHealth.totalBudgeted > 0 ? budgetHealth.totalBudgeted : 0);
+    const netAvailable = Math.max(0, base - totalActiveMonthlySubscriptions);
+    return netAvailable / 4;
+  }, [totalIncome, budgetHealth.totalBudgeted, totalActiveMonthlySubscriptions]);
+
+  const weeklyNet = weeklyIncome - weeklyExpenses;
 
   const recentTransactions = useMemo(() => {
     return transactions.slice(0, 5);
@@ -74,29 +125,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return new Map(categories.map((c) => [c.id, c]));
   }, [categories]);
 
-  // Check if today is on the first 3 days of the month (or preview mode)
-  const isFirstThreeDays = useMemo(() => {
-    const day = new Date().getDate();
-    return day <= 3;
-  }, []);
+  const handleOpenIncomeSettings = () => {
+    triggerHaptic('light');
+    const existing = monthlyIncome > 0 ? monthlyIncome : totalIncome;
+    setIncomeInput(existing > 0 ? existing.toString() : '');
+    setIsIncomeModalOpen(true);
+  };
 
-  // Compute latest monthly summary for the prior month if user has prior month transactions
-  const latestSummary = useMemo(() => {
-    const now = new Date();
-    const priorDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const priorMonthKey = `${priorDate.getFullYear()}-${String(priorDate.getMonth() + 1).padStart(2, '0')}`;
-
-    const priorTxs = transactions.filter((t) => t.date.startsWith(priorMonthKey));
-    if (priorTxs.length === 0) {
-      return null;
-    }
-    return getMonthlySummaryForMonth(priorMonthKey, transactions, categories);
-  }, [transactions, categories]);
-
-  const handleOpenMonthlyReport = () => {
-    if (latestSummary && onOpenReportModal) {
+  const handleSaveMonthlyIncome = (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseFloat(incomeInput);
+    if (!isNaN(val) && val >= 0) {
+      setMonthlyIncome(val);
+      setIsIncomeModalOpen(false);
       triggerHaptic('success');
-      onOpenReportModal(latestSummary);
     }
   };
 
@@ -131,7 +173,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Quick Add Button */}
+        {/* Quick Add Record Button */}
         <button
           onClick={() => {
             triggerHaptic('light');
@@ -144,107 +186,153 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </button>
       </div>
 
-      {/* Linked on the first 3 days of a month if prior month data exists */}
-      {isFirstThreeDays && latestSummary && (
-        <div
-          onClick={handleOpenMonthlyReport}
-          className="p-4 rounded-3xl bg-gradient-to-r from-emerald-950/90 via-teal-950/70 to-slate-900 border border-emerald-500/40 shadow-xl cursor-pointer hover:border-emerald-400 transition ios-touch-active group"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center justify-center shrink-0 shadow-sm">
-                <Award className="w-5 h-5 text-emerald-400" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider bg-emerald-950/90 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                    Day 1–3 Featured Summary
-                  </span>
-                </div>
-                <h3 className="text-sm font-bold text-white mt-1 group-hover:text-emerald-300 transition">
-                  {latestSummary.monthName} Monthly Spending Review
-                </h3>
-                <p className="text-[11px] text-slate-300 mt-0.5 line-clamp-1">
-                  Saved {formatCurrency(latestSummary.netSavings)} ({latestSummary.savingsRate}% rate) •{' '}
-                  {latestSummary.priorMonthComparison.expenseChangePercent < 0
-                    ? `${Math.abs(latestSummary.priorMonthComparison.expenseChangePercent)}% lower spend vs prior month`
-                    : `+${latestSummary.priorMonthComparison.expenseChangePercent}% vs prior month`}
-                  . Tap to view detailed comparison & graphs.
-                </p>
-              </div>
-            </div>
-
-            <div className="hidden sm:flex items-center gap-1 text-xs text-emerald-400 font-semibold group-hover:translate-x-1 transition-transform shrink-0 pl-3">
-              <span>Full Report</span>
-              <ChevronRight className="w-4 h-4" />
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Hero Financial Health Card (Apple Glassmorphism Style) */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800/90 to-emerald-950/40 border border-white/10 p-6 shadow-2xl">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800/90 to-emerald-950/40 border border-white/10 p-6 shadow-2xl space-y-4">
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-56 h-56 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-56 h-56 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
 
         <div className="relative z-10 space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs uppercase font-medium tracking-wider text-slate-400">
-              Net Cashflow (This Month)
+          {/* Header Row: Title & Toggle */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="text-xs uppercase font-semibold tracking-wider text-slate-400">
+              {cashflowPeriod === 'monthly' ? 'Monthly Cashflow' : 'Weekly Cashflow (Mon–Sun)'}
             </span>
-            <span
-              className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border ${
-                netSavings >= 0
-                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                  : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
-              }`}
-            >
-              {netSavings >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-              <span>{savingsRate}% saved</span>
-            </span>
+
+            {/* Monthly vs Weekly Cashflow Toggle */}
+            <div className="flex items-center p-1 bg-slate-950/90 rounded-xl border border-slate-800 text-xs font-semibold select-none">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setCashflowPeriod('monthly');
+                }}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  cashflowPeriod === 'monthly'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setCashflowPeriod('weekly');
+                }}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  cashflowPeriod === 'weekly'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Weekly
+              </button>
+            </div>
           </div>
 
+          {/* Main Net Amount */}
           <div>
             <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
-              {formatCurrency(netSavings)}
+              {formatCurrency(cashflowPeriod === 'monthly' ? netSavings : weeklyNet)}
             </div>
-            <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
-              <span>{daysRemainingInMonth} days left in billing cycle</span>
-              <span>•</span>
-              <span className="text-emerald-400">
-                Daily safe spend: {formatCurrency(safeDailyAllowance)}/day
-              </span>
+            <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5 flex-wrap">
+              {cashflowPeriod === 'monthly' ? (
+                <>
+                  <span>{daysRemainingInMonth} days left in month</span>
+                  {savingsRate > 0 && (
+                    <>
+                      <span>•</span>
+                      <span className="text-emerald-400 font-medium">{savingsRate}% saved</span>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span className="text-slate-300">Week: {weekTimeframe.label}</span>
+                  <span>•</span>
+                  <span className="text-slate-400">
+                    Calculated as (Income − Fixed Bills) ÷ 4
+                  </span>
+                </>
+              )}
             </p>
           </div>
 
-          {/* Income vs Expenses Quick Counters */}
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <div
-              onClick={() => onOpenAddModal('income')}
-              className="p-3 rounded-2xl bg-slate-950/50 border border-white/5 hover:border-emerald-500/30 cursor-pointer transition ios-touch-active"
-            >
-              <div className="flex items-center gap-1.5 text-xs text-emerald-400 mb-1">
-                <ArrowDownLeft className="w-3.5 h-3.5" />
-                <span>Total Income</span>
+          {/* Income vs Expenses Counters */}
+          {cashflowPeriod === 'monthly' ? (
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <div
+                onClick={handleOpenIncomeSettings}
+                className="p-3.5 rounded-2xl bg-slate-950/60 border border-white/5 hover:border-emerald-500/40 cursor-pointer transition ios-touch-active group"
+                title="Click to set recurring monthly income or view breakdown"
+              >
+                <div className="flex items-center justify-between text-xs text-emerald-400 mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <ArrowDownLeft className="w-3.5 h-3.5" />
+                    <span className="font-semibold">Total Income</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 group-hover:text-emerald-300">Edit</span>
+                </div>
+                <div className="text-lg font-bold text-white truncate">
+                  {formatCurrency(totalIncome)}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                  Tap to set recurring income
+                </p>
               </div>
-              <div className="text-lg font-bold text-white truncate">
-                {formatCurrency(totalIncome)}
-              </div>
-            </div>
 
-            <div
-              onClick={() => onOpenAddModal('expense')}
-              className="p-3 rounded-2xl bg-slate-950/50 border border-white/5 hover:border-rose-500/30 cursor-pointer transition ios-touch-active"
-            >
-              <div className="flex items-center gap-1.5 text-xs text-rose-400 mb-1">
-                <ArrowUpRight className="w-3.5 h-3.5" />
-                <span>Total Expenses</span>
-              </div>
-              <div className="text-lg font-bold text-white truncate">
-                {formatCurrency(totalExpenses)}
+              <div
+                onClick={() => onOpenAddModal('expense')}
+                className="p-3.5 rounded-2xl bg-slate-950/60 border border-white/5 hover:border-rose-500/40 cursor-pointer transition ios-touch-active"
+              >
+                <div className="flex items-center gap-1.5 text-xs text-rose-400 mb-1">
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                  <span className="font-semibold">Total Expenses</span>
+                </div>
+                <div className="text-lg font-bold text-white truncate">
+                  {formatCurrency(totalExpenses)}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                  This month's spending
+                </p>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <div
+                onClick={handleOpenIncomeSettings}
+                className="p-3.5 rounded-2xl bg-slate-950/60 border border-white/5 hover:border-emerald-500/40 cursor-pointer transition ios-touch-active"
+              >
+                <div className="flex items-center gap-1.5 text-xs text-emerald-400 mb-1">
+                  <ArrowDownLeft className="w-3.5 h-3.5" />
+                  <span className="font-semibold">Weekly Income</span>
+                </div>
+                <div className="text-lg font-bold text-white truncate">
+                  {formatCurrency(weeklyIncome)}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                  (Income − Subs) ÷ 4
+                </p>
+              </div>
+
+              <div
+                onClick={() => onOpenAddModal('expense')}
+                className="p-3.5 rounded-2xl bg-slate-950/60 border border-white/5 hover:border-rose-500/40 cursor-pointer transition ios-touch-active"
+              >
+                <div className="flex items-center gap-1.5 text-xs text-rose-400 mb-1">
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                  <span className="font-semibold">Weekly Expenses</span>
+                </div>
+                <div className="text-lg font-bold text-white truncate">
+                  {formatCurrency(weeklyExpenses)}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                  Entered this week
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -422,6 +510,137 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* Monthly Baseline Income Configuration Modal */}
+      {isIncomeModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 animate-fade-in select-none"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              triggerHaptic('light');
+              setIsIncomeModalOpen(false);
+            }
+          }}
+        >
+          <div className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-1 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <ArrowDownLeft className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-white">Monthly Income Setting</h3>
+                  <p className="text-xs text-slate-400">Baseline recurring earnings</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setIsIncomeModalOpen(false);
+                }}
+                className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Set your regular monthly baseline income (such as salary, stipend, or allowance). Zenith
+              automatically renews and records this income on the <strong className="text-emerald-400">1st day of every month</strong>.
+            </p>
+
+            <form onSubmit={handleSaveMonthlyIncome} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Monthly Baseline Amount ({currentUser?.currency.code || 'USD'})
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    autoFocus
+                    placeholder="e.g. 870.00"
+                    value={incomeInput}
+                    onChange={(e) => setIncomeInput(e.target.value)}
+                    className="w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-3 text-base font-bold text-white focus:outline-none focus:border-emerald-500"
+                  />
+                  <span className="absolute right-3.5 top-3.5 text-xs text-slate-400 font-semibold">
+                    {currentUser?.currency.symbol || '$'} / month
+                  </span>
+                </div>
+              </div>
+
+              {/* Real-time Calculation Breakdown Preview */}
+              <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2 text-xs">
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                  Automatic Cashflow Projection
+                </span>
+
+                <div className="flex items-center justify-between text-slate-300">
+                  <span>Gross Monthly Baseline:</span>
+                  <span className="font-bold text-white font-mono">
+                    {formatCurrency(parseFloat(incomeInput) || 0)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-slate-300">
+                  <span className="text-purple-300 flex items-center gap-1">
+                    <span>Fixed Subscriptions & Rent:</span>
+                  </span>
+                  <span className="font-bold text-purple-300 font-mono">
+                    -{formatCurrency(totalActiveMonthlySubscriptions)}
+                  </span>
+                </div>
+
+                <div className="border-t border-slate-800 pt-2 flex items-center justify-between text-emerald-400 font-semibold">
+                  <span>Remaining Available Variable Budget:</span>
+                  <span className="font-bold text-white font-mono">
+                    {formatCurrency(Math.max(0, (parseFloat(incomeInput) || 0) - totalActiveMonthlySubscriptions))}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
+                  <span>Weekly Budget Allowance (÷ 4):</span>
+                  <span className="font-bold text-emerald-400 font-mono">
+                    {formatCurrency(Math.max(0, (parseFloat(incomeInput) || 0) - totalActiveMonthlySubscriptions) / 4)}/week
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-emerald-950/20 border border-emerald-500/20 text-[11px] text-slate-400 flex items-center gap-2">
+                <RotateCcw className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Renews on the 1st of every month automatically (same day fixed bills are subtracted).</span>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-950/60 flex items-center justify-center gap-1.5 ios-touch-active"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Save Recurring Monthly Income</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsIncomeModalOpen(false);
+                    onOpenAddModal('income');
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs font-medium transition"
+                >
+                  Record One-Time / Variable Income Instead
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

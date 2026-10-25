@@ -4,9 +4,6 @@ import {
   TrendingUp,
   BarChart3,
   Calendar,
-  Zap,
-  ArrowUpRight,
-  ArrowDownLeft,
 } from 'lucide-react';
 import { CategoryIcon } from '../common/CategoryIcon';
 import { triggerHaptic } from '../../services/storage';
@@ -171,38 +168,6 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
         </div>
       </div>
 
-      {/* High-level Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1">
-          <div className="flex items-center gap-1.5 text-xs text-emerald-400">
-            <ArrowDownLeft className="w-3.5 h-3.5" />
-            <span>Income</span>
-          </div>
-          <div className="text-lg font-bold text-white truncate">
-            {formatCurrency(totalIncome)}
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1">
-          <div className="flex items-center gap-1.5 text-xs text-rose-400">
-            <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>Expenses</span>
-          </div>
-          <div className="text-lg font-bold text-white truncate">
-            {formatCurrency(totalExpense)}
-          </div>
-        </div>
-
-        <div className="col-span-2 sm:col-span-1 p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1">
-          <div className="flex items-center gap-1.5 text-xs text-indigo-400">
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>Net Saved</span>
-          </div>
-          <div className="text-lg font-bold text-white truncate">
-            {formatCurrency(totalIncome - totalExpense)}
-          </div>
-        </div>
-      </div>
 
       {/* Donut Chart & Category Breakdown */}
       <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-6">

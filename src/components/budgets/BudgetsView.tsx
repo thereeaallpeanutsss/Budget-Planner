@@ -26,6 +26,7 @@ export const BudgetsView: React.FC<BudgetsViewProps> = ({ onOpenCategoryManager 
     transactions,
     subscriptions,
     budgetHealth,
+    totalActiveMonthlySubscriptions,
     formatCurrency,
     setBudgetLimit,
     removeBudgetLimit,
@@ -105,9 +106,10 @@ export const BudgetsView: React.FC<BudgetsViewProps> = ({ onOpenCategoryManager 
     return new Map(budgets.map((b) => [b.categoryId, b]));
   }, [budgets]);
 
-  // Weekly budget health: monthly budget divided by 4
+  // Weekly budget health: (monthly budget minus subscriptions) divided by 4
   const weeklyHealth = useMemo(() => {
-    const totalWeeklyBudget = budgetHealth.totalBudgeted / 4;
+    const netMonthlyBudget = Math.max(0, budgetHealth.totalBudgeted - totalActiveMonthlySubscriptions);
+    const totalWeeklyBudget = netMonthlyBudget > 0 ? netMonthlyBudget / 4 : budgetHealth.totalBudgeted / 4;
     let totalWeeklySpentInBudgets = 0;
     for (const b of budgets) {
       totalWeeklySpentInBudgets += weeklyCategorySpendMap.get(b.categoryId) || 0;
@@ -122,7 +124,7 @@ export const BudgetsView: React.FC<BudgetsViewProps> = ({ onOpenCategoryManager 
       remaining,
       percentUsed,
     };
-  }, [budgetHealth.totalBudgeted, budgets, weeklyCategorySpendMap]);
+  }, [budgetHealth.totalBudgeted, totalActiveMonthlySubscriptions, budgets, weeklyCategorySpendMap]);
 
   const activeHealth = budgetPeriod === 'weekly' ? weeklyHealth : budgetHealth;
 
@@ -228,7 +230,9 @@ export const BudgetsView: React.FC<BudgetsViewProps> = ({ onOpenCategoryManager 
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5">
               {budgetPeriod === 'weekly'
-                ? `Monday–Sunday timeframe (Monthly ÷ 4). Fixed for entire week across month borders.`
+                ? `Monday–Sunday timeframe: (Monthly Budget minus Subscriptions) ÷ 4.`
+                : totalActiveMonthlySubscriptions > 0
+                ? `Includes ${formatCurrency(totalActiveMonthlySubscriptions)} in fixed bills subtracted from the budget on the 1st of the month.`
                 : `Total monthly spending limit across all active category budgets.`}
             </p>
           </div>
