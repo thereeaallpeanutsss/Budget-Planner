@@ -27,6 +27,10 @@ import {
   LogIn,
   X,
   AlertCircle,
+  Calendar,
+  Table,
+  FileUp,
+  FileText,
 } from 'lucide-react';
 import {
   exportSingleUserBackup,
@@ -38,6 +42,13 @@ import {
   triggerHaptic,
   UserSummary,
 } from '../../services/storage';
+import {
+  exportOverviewCSV,
+  exportWeekLogCSV,
+  parseBudgetPlannerCSV,
+  importPlannerDataIntoUser,
+  ParsedPlannerResult,
+} from '../../services/budgetPlannerCSV';
 import { SUPPORTED_CURRENCIES, AVATAR_OPTIONS, COLOR_OPTIONS } from '../../utils/constants';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
 
@@ -117,10 +128,27 @@ export const SettingsBackupView: React.FC<SettingsBackupViewProps> = ({
 
   // Restore file state
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const csvFileInputRef = useRef<HTMLInputElement>(null);
   const [restorePreview, setRestorePreview] = useState<RestorePreview | null>(null);
   const [restoreMode, setRestoreMode] = useState<'merge' | 'replace'>('merge');
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const [restoreSuccess, setRestoreSuccess] = useState(false);
+
+  // Budget Planner CSV Import / Export states
+  const [csvPreview, setCsvPreview] = useState<ParsedPlannerResult | null>(null);
+  const [csvPreviewContent, setCsvPreviewContent] = useState<string>('');
+  const [selectedCsvMonth, setSelectedCsvMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [exportPlannerMonth, setExportPlannerMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [exportPlannerWeek, setExportPlannerWeek] = useState<number>(1);
+  const [csvImportSuccess, setCsvImportSuccess] = useState<string | null>(null);
+  const [csvImportError, setCsvImportError] = useState<string | null>(null);
+  const [isImportingCsv, setIsImportingCsv] = useState(false);
 
   const handleOpenEditProfile = () => {
     if (currentUser) {
@@ -321,6 +349,66 @@ export const SettingsBackupView: React.FC<SettingsBackupViewProps> = ({
       setRestoreError(err.message || 'Failed to restore');
     }
   };
+
+  const handleCsvFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCsvImportError(null);
+    setCsvImportSuccess(null);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        setCsvPreviewContent(content);
+        const parsed = parseBudgetPlannerCSV(content, selectedCsvMonth);
+        setCsvPreview(parsed);
+        triggerHaptic('light');
+      } catch (err: any) {
+        setCsvImportError(err.message || 'Failed to parse budget planner CSV');
+        triggerHaptic('warning');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleMonthChangeInPreview = (newMonth: string) => {
+    setSelectedCsvMonth(newMonth);
+    if (csvPreviewContent) {
+      try {
+        const reParsed = parseBudgetPlannerCSV(csvPreviewContent, newMonth);
+        setCsvPreview(reParsed);
+      } catch {
+        // keep current
+      }
+    }
+  };
+
+  const handleConfirmCsvImport = () => {
+    if (!csvPreview || !currentUser) return;
+    setIsImportingCsv(true);
+    try {
+      const result = importPlannerDataIntoUser(currentUser.id, csvPreview, selectedCsvMonth);
+      setCsvPreview(null);
+      setCsvPreviewContent('');
+      setCsvImportSuccess(
+        `Import completed! Added ${result.transactionsAdded} transaction(s), ${result.categoriesAdded} category(ies), and ${result.subscriptionsAdded} subscription(s) for ${selectedCsvMonth}.`
+      );
+      triggerHaptic('success');
+      reloadAll();
+      setTimeout(() => {
+        setCsvImportSuccess(null);
+      }, 5000);
+    } catch (err: any) {
+      setCsvImportError(err.message || 'Error saving imported planner data');
+      triggerHaptic('warning');
+    } finally {
+      setIsImportingCsv(false);
+    }
+  };
+
 
   return (
     <div className="space-y-6 pb-24 select-none">
@@ -682,129 +770,290 @@ export const SettingsBackupView: React.FC<SettingsBackupViewProps> = ({
         </p>
       </div>
 
-      {/* Local Backup & Data Hub (Core Feature) */}
-      <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
-              <HardDrive className="w-4 h-4" />
+      {/* Application Data Hub & Vault Backups */}
+      <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-6">
+        {/* Section 1: JSON Full Application Data Backup & Restore */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                <HardDrive className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-white">Application Data Backup & Restore (JSON)</h2>
+                <p className="text-[11px] text-slate-400">Save complete local vault files or restore previously saved data</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-sm font-semibold text-white">Local Backup & Restore</h2>
-              <p className="text-[11px] text-slate-400">Save your data to device files or import back</p>
-            </div>
+            <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+              Full Vault
+            </span>
           </div>
-          <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-            No Cloud Needed
-          </span>
+
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Zenith stores all financial records locally in private storage. Export your entire application data
+            as a secure JSON file to back up all accounts, custom categories, transactions, budgets, goals, and
+            recurring subscriptions.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <button
+              onClick={() => {
+                triggerHaptic('light');
+                exportAllUsersBackup();
+              }}
+              className="p-3.5 rounded-2xl bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-500/30 text-left flex items-start gap-3 transition ios-touch-active group"
+            >
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                <Download className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-xs font-bold text-white">Export All Data (JSON)</h3>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Full backup of all {users.length} account(s), categories & vaults
+                </p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                triggerHaptic('light');
+                if (currentUser) exportSingleUserBackup(currentUser.id);
+              }}
+              className="p-3.5 rounded-2xl bg-slate-950/60 hover:bg-slate-950 border border-slate-800 text-left flex items-start gap-3 transition ios-touch-active"
+            >
+              <div className="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center shrink-0 mt-0.5">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-semibold text-white">Backup Current Profile</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Save {currentUser?.name || 'current'}'s transactions & limits
+                </p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                triggerHaptic('light');
+                fileInputRef.current?.click();
+              }}
+              className="p-3.5 rounded-2xl bg-blue-950/30 hover:bg-blue-900/40 border border-blue-500/30 text-left flex items-start gap-3 transition ios-touch-active group"
+            >
+              <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                <Upload className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-white">Import / Restore JSON</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Restore from a previously exported JSON file
+                </p>
+              </div>
+            </button>
+          </div>
+
+          {/* Hidden JSON File Input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            onChange={handleFileSelected}
+            className="hidden"
+          />
+
+          {restoreError && (
+            <div className="p-3 rounded-2xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+              <span>{restoreError}</span>
+            </div>
+          )}
+
+          {restoreSuccess && (
+            <div className="p-3 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+              <span>Backup successfully restored! Reloading data...</span>
+            </div>
+          )}
         </div>
 
-        <p className="text-xs text-slate-300 leading-relaxed">
-          Zenith keeps all financial records local and private. Export your vault anytime to save a JSON
-          backup or CSV spreadsheet on your iPhone, iPad, or Mac.
-        </p>
+        <div className="border-t border-slate-800/80 pt-5 space-y-4">
+          {/* Section 2: Budget Planner CSV Export (Exact Template Layout) */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
+                <Table className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-white">Budget Planner CSV Export (Exact Layout)</h2>
+                <p className="text-[11px] text-slate-400">Export in your custom multi-week spreadsheet table format</p>
+              </div>
+            </div>
+            <span className="text-[10px] text-purple-300 bg-purple-950/60 border border-purple-500/30 px-2 py-0.5 rounded-full font-mono">
+              Semicolon (;) & Decimal (,)
+            </span>
+          </div>
 
-        {/* Export / Import Button Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-          <button
-            onClick={() => {
-              triggerHaptic('light');
-              if (currentUser) exportSingleUserBackup(currentUser.id);
-            }}
-            className="p-3.5 rounded-2xl bg-slate-950/60 hover:bg-slate-950 border border-slate-800 text-left flex items-start gap-3 transition ios-touch-active"
-          >
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-              <Download className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-xs font-semibold text-white">Backup Current Account</h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Download JSON with your transactions, budgets & goals
-              </p>
-            </div>
-          </button>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Exports data matching your exact budget planner table layout—including your dynamic categories, weekly
+            Woche 1–4 breakdown, fixed monthly subscriptions (Rent, tickets, etc.), and remaining weekly averages.
+          </p>
 
-          <button
-            onClick={() => {
-              triggerHaptic('light');
-              exportAllUsersBackup();
-            }}
-            className="p-3.5 rounded-2xl bg-slate-950/60 hover:bg-slate-950 border border-slate-800 text-left flex items-start gap-3 transition ios-touch-active"
-          >
-            <div className="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center shrink-0 mt-0.5">
-              <Users className="w-4 h-4" />
+          {/* Month & Week Filters for Export */}
+          <div className="flex flex-wrap items-center gap-3 p-3 rounded-2xl bg-slate-950/60 border border-slate-800 text-xs">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-slate-400" />
+              <span className="text-slate-300 font-medium">Target Month:</span>
+              <input
+                type="month"
+                value={exportPlannerMonth}
+                onChange={(e) => setExportPlannerMonth(e.target.value)}
+                className="bg-slate-900 border border-slate-700 text-white rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-purple-500"
+              />
             </div>
-            <div>
-              <h3 className="text-xs font-semibold text-white">Backup All Device Vaults</h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Save full multi-user backup file ({users.length} accounts)
-              </p>
-            </div>
-          </button>
 
-          <button
-            onClick={() => {
-              triggerHaptic('light');
-              fileInputRef.current?.click();
-            }}
-            className="p-3.5 rounded-2xl bg-slate-950/60 hover:bg-slate-950 border border-slate-800 text-left flex items-start gap-3 transition ios-touch-active sm:col-span-2"
-          >
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
-              <Upload className="w-4 h-4" />
+            <div className="flex items-center gap-2">
+              <span className="text-slate-300 font-medium">Week Number:</span>
+              <select
+                value={exportPlannerWeek}
+                onChange={(e) => setExportPlannerWeek(Number(e.target.value))}
+                className="bg-slate-900 border border-slate-700 text-white rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-purple-500"
+              >
+                <option value={1}>Week 1 (Woche 1)</option>
+                <option value={2}>Week 2 (Woche 2)</option>
+                <option value={3}>Week 3 (Woche 3)</option>
+                <option value={4}>Week 4 (Woche 4)</option>
+              </select>
             </div>
-            <div>
-              <h3 className="text-xs font-semibold text-white">Restore from Backup File</h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Select a previously saved Zenith JSON file to merge or replace data
-              </p>
-            </div>
-          </button>
+          </div>
 
-          <button
-            onClick={() => {
-              triggerHaptic('light');
-              if (currentUser && userData) {
-                exportTransactionsToCSV(userData);
-              }
-            }}
-            className="p-3.5 rounded-2xl bg-slate-950/60 hover:bg-slate-950 border border-slate-800 text-left flex items-start gap-3 transition ios-touch-active sm:col-span-2"
-          >
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-              <FileSpreadsheet className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-xs font-semibold text-white">Export to Spreadsheet (CSV)</h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Download structured CSV file for Microsoft Excel, Apple Numbers, or Google Sheets
-              </p>
-            </div>
-          </button>
+          {/* CSV Export Action Buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button
+              onClick={() => {
+                triggerHaptic('light');
+                if (userData) exportOverviewCSV(userData, exportPlannerMonth);
+              }}
+              className="p-3.5 rounded-2xl bg-purple-950/20 hover:bg-purple-900/30 border border-purple-500/30 text-left flex items-start gap-3 transition ios-touch-active"
+            >
+              <div className="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center shrink-0 mt-0.5">
+                <FileSpreadsheet className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-white">Monthly Overview (CSV)</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Exact Overview table with Woche 1–4 columns & fixed expenses
+                </p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                triggerHaptic('light');
+                if (userData) exportWeekLogCSV(userData, exportPlannerWeek, exportPlannerMonth);
+              }}
+              className="p-3.5 rounded-2xl bg-slate-950/60 hover:bg-slate-950 border border-slate-800 text-left flex items-start gap-3 transition ios-touch-active"
+            >
+              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
+                <FileText className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-semibold text-white">Week {exportPlannerWeek} Log (CSV)</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Exact Week_{exportPlannerWeek}.csv layout with individual transactions
+                </p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                triggerHaptic('light');
+                if (currentUser && userData) exportTransactionsToCSV(userData);
+              }}
+              className="p-3.5 rounded-2xl bg-slate-950/60 hover:bg-slate-950 border border-slate-800 text-left flex items-start gap-3 transition ios-touch-active"
+            >
+              <div className="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center shrink-0 mt-0.5">
+                <Download className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-semibold text-white">Raw Transactions (CSV)</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Standard flat table for Google Sheets, Numbers, or Excel
+                </p>
+              </div>
+            </button>
+          </div>
         </div>
 
-        {/* Hidden File Input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json,application/json"
-          onChange={handleFileSelected}
-          className="hidden"
-        />
-
-        {/* Restore Error Message */}
-        {restoreError && (
-          <div className="p-3 rounded-2xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
-            <span>{restoreError}</span>
+        {/* Section 3: Import Budget Planner Table (CSV) */}
+        <div className="border-t border-slate-800/80 pt-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+                <FileUp className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-white">Import Budget Planner Tables (CSV)</h2>
+                <p className="text-[11px] text-slate-400">Bring your previous months' spreadsheet data directly into Zenith</p>
+              </div>
+            </div>
+            <span className="text-[10px] text-amber-300 bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded-full font-mono">
+              Auto-Detection
+            </span>
           </div>
-        )}
 
-        {/* Restore Success Message */}
-        {restoreSuccess && (
-          <div className="p-3 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-            <span>Backup successfully restored! Reloading data...</span>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Upload any of your past budget planner CSV files (<code className="text-amber-300">Overview-*.csv</code>, <code className="text-amber-300">Week_1-4.csv</code>, or <code className="text-amber-300">Monthly_overview-*.csv</code>). Zenith automatically maps your categories (e.g. "Food (Flight School)", "Groceries"), creates custom categories if missing, imports past expenses, and extracts your monthly budgets and recurring expenses.
+          </p>
+
+          <div>
+            <button
+              onClick={() => {
+                triggerHaptic('light');
+                csvFileInputRef.current?.click();
+              }}
+              className="w-full p-4 rounded-2xl bg-amber-950/20 hover:bg-amber-900/30 border border-amber-500/30 text-left flex items-center justify-between gap-4 transition ios-touch-active group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <FileUp className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-white">Upload Budget Planner Table (CSV)</h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Select a previous month's CSV table to review and import into your vault
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-semibold text-amber-300 bg-amber-500/20 border border-amber-500/30 px-3 py-1.5 rounded-xl shrink-0">
+                Choose File
+              </span>
+            </button>
           </div>
-        )}
+
+          {/* Hidden CSV File Input */}
+          <input
+            ref={csvFileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={handleCsvFileSelected}
+            className="hidden"
+          />
+
+          {csvImportError && (
+            <div className="p-3 rounded-2xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+              <span>{csvImportError}</span>
+            </div>
+          )}
+
+          {csvImportSuccess && (
+            <div className="p-3 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+              <span>{csvImportSuccess}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Preferences Section */}
@@ -1582,6 +1831,204 @@ export const SettingsBackupView: React.FC<SettingsBackupViewProps> = ({
                 className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md"
               >
                 Confirm Restore
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CSV Budget Planner Import Preview Dialog */}
+      {csvPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-lg rounded-3xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5 text-amber-400">
+                <FileSpreadsheet className="w-5 h-5" />
+                <div>
+                  <h3 className="text-sm font-semibold text-white">Budget Planner CSV Detected</h3>
+                  <p className="text-[11px] text-slate-400">
+                    Format:{' '}
+                    <span className="text-amber-300 font-semibold">
+                      {csvPreview.type === 'planner_overview' && 'Overview Multi-Week Table (Woche 1–4)'}
+                      {csvPreview.type === 'week_log' && `Week Log Table (Week ${csvPreview.weekNumber || 1})`}
+                      {csvPreview.type === 'monthly_overview' && 'Monthly Overview Table'}
+                      {csvPreview.type === 'standard_csv' && 'Standard CSV Transactions Table'}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCsvPreview(null);
+                  setCsvPreviewContent('');
+                }}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Target Month Selection */}
+            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5">
+              <label className="block text-xs font-medium text-slate-200">
+                Assign Data to Which Month?
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="month"
+                  value={selectedCsvMonth}
+                  onChange={(e) => handleMonthChangeInPreview(e.target.value)}
+                  className="bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-amber-500 w-full"
+                />
+              </div>
+              <p className="text-[10px] text-slate-400">
+                Transactions from this table will be imported with dates in {selectedCsvMonth}.
+              </p>
+            </div>
+
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
+                <span className="text-[10px] text-slate-400 block">Transactions</span>
+                <span className="text-base font-bold text-white">{csvPreview.transactionsToCreate.length}</span>
+              </div>
+              <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
+                <span className="text-[10px] text-slate-400 block">Total Spend</span>
+                <span className="text-base font-bold text-rose-400">
+                  {currentUser?.currency.symbol || '€'}{' '}
+                  {csvPreview.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
+                <span className="text-[10px] text-slate-400 block">Categories</span>
+                <span className="text-base font-bold text-amber-300">{csvPreview.categoriesFound.length}</span>
+              </div>
+              <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
+                <span className="text-[10px] text-slate-400 block">Subscriptions</span>
+                <span className="text-base font-bold text-purple-300">{csvPreview.subscriptionsToCreate.length}</span>
+              </div>
+            </div>
+
+            {/* Monthly Budget Limit (if found) */}
+            {csvPreview.detectedMonthlyBudget !== undefined && csvPreview.detectedMonthlyBudget > 0 && (
+              <div className="p-3 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 text-xs flex items-center justify-between">
+                <span className="text-emerald-300 font-medium">Monthly Budget Limit Found:</span>
+                <span className="text-sm font-bold text-white">
+                  {currentUser?.currency.symbol || '€'} {csvPreview.detectedMonthlyBudget.toLocaleString()}
+                </span>
+              </div>
+            )}
+
+            {/* Categories found */}
+            <div>
+              <span className="text-xs font-semibold text-slate-300 block mb-1.5">
+                Categories to Sync & Import:
+              </span>
+              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1">
+                {csvPreview.categoriesFound.map((cat, idx) => {
+                  const existingCat = userData?.categories.find(
+                    (c) => c.name.trim().toLowerCase() === cat.trim().toLowerCase()
+                  );
+                  return (
+                    <span
+                      key={idx}
+                      className={`text-[11px] px-2 py-0.5 rounded-lg border flex items-center gap-1 ${
+                        existingCat
+                          ? 'bg-slate-950 text-slate-300 border-slate-800'
+                          : 'bg-amber-950/40 text-amber-300 border-amber-500/40 font-medium'
+                      }`}
+                    >
+                      {cat}
+                      {!existingCat && (
+                        <span className="text-[9px] bg-amber-500/30 px-1 py-0.2 rounded text-amber-200 uppercase tracking-wider">
+                          New
+                        </span>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Subscriptions found */}
+            {csvPreview.subscriptionsToCreate.length > 0 && (
+              <div>
+                <span className="text-xs font-semibold text-slate-300 block mb-1.5">
+                  Fixed Monthly Expenses Detected:
+                </span>
+                <div className="space-y-1 max-h-24 overflow-y-auto">
+                  {csvPreview.subscriptionsToCreate.map((sub, i) => (
+                    <div
+                      key={i}
+                      className="p-2 rounded-xl bg-slate-950 border border-slate-800 text-xs flex items-center justify-between"
+                    >
+                      <span className="text-white font-medium">{sub.name}</span>
+                      <span className="text-slate-300 font-mono">
+                        {currentUser?.currency.symbol || '€'} {sub.amount.toFixed(2)}/mo
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Transactions Sample Table */}
+            <div>
+              <span className="text-xs font-semibold text-slate-300 block mb-1.5">
+                Transactions Preview ({csvPreview.transactionsToCreate.length} total):
+              </span>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                {csvPreview.transactionsToCreate.slice(0, 8).map((tx, idx) => (
+                  <div
+                    key={idx}
+                    className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs flex items-center justify-between"
+                  >
+                    <div>
+                      <span className="text-white font-medium block">{tx.categoryName}</span>
+                      <span className="text-[10px] text-slate-400">
+                        {tx.date} • {tx.note}
+                      </span>
+                    </div>
+                    <span className="text-rose-400 font-bold font-mono">
+                      -{currentUser?.currency.symbol || '€'} {tx.amount.toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+                {csvPreview.transactionsToCreate.length > 8 && (
+                  <p className="text-[10px] text-slate-500 text-center py-1">
+                    + {csvPreview.transactionsToCreate.length - 8} more transactions will be imported
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Confirmation Buttons */}
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setCsvPreview(null);
+                  setCsvPreviewContent('');
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isImportingCsv}
+                onClick={handleConfirmCsvImport}
+                className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                {isImportingCsv ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    <span>Import Data to Vault</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
